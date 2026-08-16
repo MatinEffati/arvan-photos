@@ -1,0 +1,39 @@
+import 'package:arvan_photos/core/theme/app_spacing.dart';
+import 'package:flutter/material.dart';
+
+class EmptyStateScreen extends StatelessWidget {
+  const EmptyStateScreen({
+    required this.title,
+    required this.message,
+    super.key,
+  });
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.l),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.hourglass_empty, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: AppSpacing.m),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,102 @@
+import 'dart:io';
+import 'package:aws_common/aws_common.dart';
+import 'package:aws_signature_v4/aws_signature_v4.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:injectable/injectable.dart';
+import 'package:xml/xml.dart';
+
+@lazySingleton
+class ArvanS3Client {
+  ArvanS3Client(this._dio) {
+    _baseUrl = dotenv.env['ARVAN_ENDPOINT'] ?? '';
+    _region = dotenv.env['ARVAN_REGION'] ?? '';
+    _accessKey = dotenv.env['ARVAN_ACCESS_KEY'] ?? '';
+    _secretKey = dotenv.env['ARVAN_SECRET_KEY'] ?? '';
+  }
+
+  final Dio _dio;
+  late final String _baseUrl;
+  late final String _region;
+  late final String _accessKey;
+  late final String _secretKey;
+
+  String get baseUrl => _baseUrl;
+
+  Future<List<XmlElement>> listObjects() async {
+    final uri = Uri.parse('$_baseUrl/?list-type=2');
+    final request = AWSHttpRequest(
+      method: AWSHttpMethod.get,
+      uri: uri,
+    );
+
+    final signedRequest = await _signRequest(request);
+    
+    final response = await _dio.getUri<dynamic>(
+      uri,
+      options: Options(headers: signedRequest.headers),
+    );
+
+    final document = XmlDocument.parse(response.data.toString());
+    return document.findAllElements('Contents').toList();
+  }
+
+  Future<void> putObject(String key, File file) async {
+    final bytes = await file.readAsBytes();
+    final uri = Uri.parse('$_baseUrl/$key');
+    
+    final request = AWSHttpRequest(
+      method: AWSHttpMethod.put,
+      uri: uri,
+      body: bytes,
+      headers: const {
+        AWSHeaders.contentType: 'image/jpeg',
+      },
+    );
+
+    final signedRequest = await _signRequest(request);
+
+    await _dio.putUri<dynamic>(
+      uri,
+      data: Stream.fromIterable([bytes]),
+      options: Options(
+        headers: signedRequest.headers,
+        contentType: 'image/jpeg',
+      ),
+    );
+  }
+
+  Future<void> deleteObject(String key) async {
+    final uri = Uri.parse('$_baseUrl/$key');
+    
+    final request = AWSHttpRequest(
+      method: AWSHttpMethod.delete,
+      uri: uri,
+    );
+
+    final signedRequest = await _signRequest(request);
+
+    await _dio.deleteUri<dynamic>(
+      uri,
+      options: Options(headers: signedRequest.headers),
+    );
+  }
+
+  Future<AWSSignedRequest> _signRequest(AWSBaseHttpRequest request) async {
+    final signer = AWSSigV4Signer(
+      credentialsProvider: AWSCredentialsProvider(
+        AWSCredentials(_accessKey, _secretKey),
+      ),
+    );
+
+    final scope = AWSCredentialScope(
+      region: _region,
+      service: AWSService.s3,
+    );
+
+    return signer.sign(
+      request,
+      credentialScope: scope,
+    );
+  }
+}
