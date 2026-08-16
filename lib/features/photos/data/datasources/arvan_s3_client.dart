@@ -6,6 +6,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:injectable/injectable.dart';
 import 'package:xml/xml.dart';
 
+class S3ListResponse {
+  S3ListResponse({required this.contents, this.nextContinuationToken});
+  final List<XmlElement> contents;
+  final String? nextContinuationToken;
+}
+
 @lazySingleton
 class ArvanS3Client {
   ArvanS3Client(this._dio) {
@@ -23,8 +29,22 @@ class ArvanS3Client {
 
   String get baseUrl => _baseUrl;
 
-  Future<List<XmlElement>> listObjects() async {
-    final uri = Uri.parse('$_baseUrl/?list-type=2');
+  Future<S3ListResponse> listObjects({
+    String? continuationToken,
+    int maxKeys = 20,
+  }) async {
+    final queryParams = {
+      'list-type': '2',
+      'max-keys': maxKeys.toString(),
+      if (continuationToken != null) 'continuation-token': continuationToken,
+    };
+
+    final queryString = queryParams.entries
+        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+    
+    final uri = Uri.parse('$_baseUrl/?$queryString');
+    
     final request = AWSHttpRequest(
       method: AWSHttpMethod.get,
       uri: uri,
@@ -38,7 +58,13 @@ class ArvanS3Client {
     );
 
     final document = XmlDocument.parse(response.data.toString());
-    return document.findAllElements('Contents').toList();
+    final contents = document.findAllElements('Contents').toList();
+    final nextTokenElement = document.findAllElements('NextContinuationToken').firstOrNull;
+    
+    return S3ListResponse(
+      contents: contents,
+      nextContinuationToken: nextTokenElement?.innerText,
+    );
   }
 
   Future<void> putObject(String key, File file) async {

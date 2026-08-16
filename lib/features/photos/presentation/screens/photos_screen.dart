@@ -18,11 +18,25 @@ class PhotosScreen extends StatefulWidget {
 
 class _PhotosScreenState extends State<PhotosScreen> {
   final _imagePicker = ImagePicker();
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    context.read<PhotosBloc>().add(PhotosRequested());
+    context.read<PhotosBloc>().add(const PhotosRequested());
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      context.read<PhotosBloc>().add(PhotosLoadMoreRequested());
+    }
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -44,7 +58,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Upload successful')),
               );
-              context.read<PhotosBloc>().add(PhotosRequested());
+              context.read<PhotosBloc>().add(const PhotosRequested(isRefresh: true));
             } else if (state is UploadFailure) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Upload failed: ${state.message}')),
@@ -89,7 +103,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
         ),
         body: RefreshIndicator(
           onRefresh: () async {
-            context.read<PhotosBloc>().add(PhotosRequested());
+            context.read<PhotosBloc>().add(const PhotosRequested(isRefresh: true));
           },
           child: BlocBuilder<PhotosBloc, PhotosState>(
             builder: (context, state) {
@@ -99,35 +113,63 @@ class _PhotosScreenState extends State<PhotosScreen> {
                 if (state.photos.isEmpty) {
                   return const Center(child: Text('No photos yet'));
                 }
-                return GridView.builder(
-                  padding: const EdgeInsets.all(AppSpacing.s),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: AppSpacing.s,
-                    mainAxisSpacing: AppSpacing.s,
-                  ),
-                  itemCount: state.photos.length,
-                  itemBuilder: (context, index) {
-                    final photo = state.photos[index];
-                    return PhotoGridItem(
-                      photo: photo,
-                      onTap: () {
-                        Navigator.push<bool>(
-                          context,
-                          MaterialPageRoute<bool>(
-                            builder: (_) => PhotoDetailScreen(
-                              photos: state.photos,
-                              initialIndex: index,
+                return CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.all(AppSpacing.s),
+                      sliver: SliverGrid(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: AppSpacing.s,
+                          mainAxisSpacing: AppSpacing.s,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final photo = state.photos[index];
+                            return PhotoGridItem(
+                              photo: photo,
+                              onTap: () {
+                                Navigator.push<bool>(
+                                  context,
+                                  MaterialPageRoute<bool>(
+                                    builder: (_) => PhotoDetailScreen(
+                                      photos: state.photos,
+                                      initialIndex: index,
+                                    ),
+                                  ),
+                                ).then((value) {
+                                  if (value == true && mounted) {
+                                    context.read<PhotosBloc>().add(const PhotosRequested(isRefresh: true));
+                                  }
+                                });
+                              },
+                            );
+                          },
+                          childCount: state.photos.length,
+                        ),
+                      ),
+                    ),
+                    if (state.isLoadingMore)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.m),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      ),
+                    if (!state.hasMore && state.photos.isNotEmpty)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.m),
+                          child: Center(
+                            child: Text(
+                              'No more photos',
+                              style: TextStyle(color: Colors.grey),
                             ),
                           ),
-                        ).then((value) {
-                          if (value == true && mounted) {
-                            context.read<PhotosBloc>().add(PhotosRequested());
-                          }
-                        });
-                      },
-                    );
-                  },
+                        ),
+                      ),
+                  ],
                 );
               } else if (state is PhotosLoadFailure) {
                 return Center(
@@ -137,7 +179,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       Text('Error: ${state.message}'),
                       ElevatedButton(
                         onPressed: () {
-                          context.read<PhotosBloc>().add(PhotosRequested());
+                          context.read<PhotosBloc>().add(const PhotosRequested());
                         },
                         child: const Text('Retry'),
                       ),

@@ -1,29 +1,41 @@
 import 'dart:io';
+import 'package:arvan_photos/core/error/error_mapper.dart';
 import 'package:arvan_photos/core/error/failures.dart';
 import 'package:arvan_photos/features/photos/data/datasources/arvan_s3_client.dart';
 import 'package:arvan_photos/features/photos/data/models/photo_model.dart';
-import 'package:arvan_photos/features/photos/domain/entities/photo_entity.dart';
-import 'package:arvan_photos/features/photos/domain/repositories/photo_repository.dart';
+import 'package:arvan_photos/features/photos/domain/entities/paginated_photos.dart';
+import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
+import 'package:arvan_photos/features/photos/domain/repositories/photo_query_repository.dart';
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 import 'package:uuid/uuid.dart';
 
-@LazySingleton(as: PhotoRepository)
-class PhotoRepositoryImpl implements PhotoRepository {
+@lazySingleton
+class PhotoRepositoryImpl implements PhotoQueryRepository, PhotoCommandRepository {
   PhotoRepositoryImpl(this.s3client);
   final ArvanS3Client s3client;
   final _uuid = const Uuid();
 
   @override
-  Future<Either<Failure, List<PhotoEntity>>> getPhotos() async {
+  Future<Either<Failure, PaginatedPhotos>> getPhotos({
+    String? continuationToken,
+    int maxKeys = 20,
+  }) async {
     try {
-      final elements = await s3client.listObjects();
-      final photos = elements
+      final response = await s3client.listObjects(
+        continuationToken: continuationToken,
+        maxKeys: maxKeys,
+      );
+      final photos = response.contents
           .map((e) => PhotoModel.fromXmlElement(e, s3client.baseUrl))
           .toList();
-      return Right(photos);
+      
+      return Right(PaginatedPhotos(
+        photos: photos,
+        nextContinuationToken: response.nextContinuationToken,
+      ));
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ErrorMapper.map(e));
     }
   }
 
@@ -36,7 +48,7 @@ class PhotoRepositoryImpl implements PhotoRepository {
       await s3client.putObject(key, file);
       return const Right(unit);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ErrorMapper.map(e));
     }
   }
 
@@ -46,7 +58,7 @@ class PhotoRepositoryImpl implements PhotoRepository {
       await s3client.deleteObject(key);
       return const Right(unit);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ErrorMapper.map(e));
     }
   }
 
@@ -58,7 +70,7 @@ class PhotoRepositoryImpl implements PhotoRepository {
       }
       return const Right(unit);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ErrorMapper.map(e));
     }
   }
 
@@ -68,7 +80,7 @@ class PhotoRepositoryImpl implements PhotoRepository {
       await s3client.putObject(key, editedFile);
       return const Right(unit);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ErrorMapper.map(e));
     }
   }
 }

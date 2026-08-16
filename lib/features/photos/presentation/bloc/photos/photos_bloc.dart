@@ -12,6 +12,7 @@ part 'photos_state.dart';
 class PhotosBloc extends Bloc<PhotosEvent, PhotosState> {
   PhotosBloc(this._getPhotosUseCase) : super(PhotosInitial()) {
     on<PhotosRequested>(_onPhotosRequested);
+    on<PhotosLoadMoreRequested>(_onPhotosLoadMoreRequested);
     on<PhotosSortChanged>(_onPhotosSortChanged);
   }
 
@@ -21,15 +22,48 @@ class PhotosBloc extends Bloc<PhotosEvent, PhotosState> {
     PhotosRequested event,
     Emitter<PhotosState> emit,
   ) async {
-    emit(PhotosLoadInProgress());
-    final result = await _getPhotosUseCase();
+    if (!event.isRefresh) emit(PhotosLoadInProgress());
+    
+    final result = await _getPhotosUseCase(maxKeys: 20);
     result.fold(
       (failure) => emit(PhotosLoadFailure(failure.message)),
-      (photos) {
-        final sortedPhotos = _sortPhotos(photos, state.sortOption);
-        emit(PhotosLoadSuccess(sortedPhotos, state.sortOption));
+      (paginated) {
+        final sortedPhotos = _sortPhotos(paginated.photos, state.sortOption);
+        emit(PhotosLoadSuccess(
+          photos: sortedPhotos,
+          sortOption: state.sortOption,
+          nextContinuationToken: paginated.nextContinuationToken,
+        ));
       },
     );
+  }
+
+  Future<void> _onPhotosLoadMoreRequested(
+    PhotosLoadMoreRequested event,
+    Emitter<PhotosState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is PhotosLoadSuccess && currentState.hasMore && !currentState.isLoadingMore) {
+      emit(currentState.copyWith(isLoadingMore: true));
+      
+      final result = await _getPhotosUseCase(
+        continuationToken: currentState.nextContinuationToken,
+        maxKeys: 20,
+      );
+
+      result.fold(
+        (failure) => emit(currentState.copyWith(isLoadingMore: false)),
+        (paginated) {
+          final allPhotos = List<PhotoEntity>.from(currentState.photos)..addAll(paginated.photos);
+          final sortedPhotos = _sortPhotos(allPhotos, state.sortOption);
+          emit(PhotosLoadSuccess(
+            photos: sortedPhotos,
+            sortOption: state.sortOption,
+            nextContinuationToken: paginated.nextContinuationToken,
+          ));
+        },
+      );
+    }
   }
 
   void _onPhotosSortChanged(
@@ -39,7 +73,10 @@ class PhotosBloc extends Bloc<PhotosEvent, PhotosState> {
     if (state is PhotosLoadSuccess) {
       final currentState = state as PhotosLoadSuccess;
       final sortedPhotos = _sortPhotos(currentState.photos, event.sortOption);
-      emit(PhotosLoadSuccess(sortedPhotos, event.sortOption));
+      emit(currentState.copyWith(
+        photos: sortedPhotos,
+        sortOption: event.sortOption,
+      ));
     } else {
       emit(state.copyWith(sortOption: event.sortOption));
     }

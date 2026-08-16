@@ -7,7 +7,15 @@ abstract class PhotosEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class PhotosRequested extends PhotosEvent {}
+class PhotosRequested extends PhotosEvent {
+  const PhotosRequested({this.isRefresh = false});
+  final bool isRefresh;
+
+  @override
+  List<Object?> get props => [isRefresh];
+}
+
+class PhotosLoadMoreRequested extends PhotosEvent {}
 
 class PhotosSortChanged extends PhotosEvent {
   const PhotosSortChanged(this.sortOption);
