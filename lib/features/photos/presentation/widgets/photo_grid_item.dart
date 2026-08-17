@@ -4,18 +4,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class PhotoGridItem extends StatelessWidget {
-  const PhotoGridItem({
-    required this.photo,
-    required this.onTap,
-    super.key,
-  });
+  const PhotoGridItem({required this.photo, required this.onTap, super.key});
 
   final PhotoEntity photo;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    print('DISPLAY_URL: ${photo.url}');
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
@@ -26,7 +21,11 @@ class PhotoGridItem extends StatelessWidget {
           placeholder: (context, url) => const ColoredBox(
             color: AppColors.grey200,
             child: Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             ),
           ),
           errorWidget: (context, url, error) => const ColoredBox(

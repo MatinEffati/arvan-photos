@@ -128,6 +128,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                           (context, index) {
                             final photo = state.photos[index];
                             return PhotoGridItem(
+                              key: ValueKey(photo.key),
                               photo: photo,
                               onTap: () {
                                 Navigator.push<bool>(
