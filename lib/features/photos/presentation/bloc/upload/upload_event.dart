@@ -8,9 +8,17 @@ abstract class UploadEvent extends Equatable {
 }
 
 class UploadStarted extends UploadEvent {
-  const UploadStarted(this.file);
-  final File file;
+  const UploadStarted(this.files);
+  final List<File> files;
 
   @override
-  List<Object?> get props => [file];
+  List<Object?> get props => [files];
+}
+
+class UploadProgressUpdated extends UploadEvent {
+  const UploadProgressUpdated(this.progress);
+  final double progress;
+
+  @override
+  List<Object?> get props => [progress];
 }

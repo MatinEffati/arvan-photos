@@ -57,17 +57,9 @@ class ArvanS3Client {
         .join('&');
     
     final uri = Uri.parse('$_baseUrl/?$queryString');
-    
-    final request = AWSHttpRequest(
-      method: AWSHttpMethod.get,
-      uri: uri,
-    );
+    final request = AWSHttpRequest(method: AWSHttpMethod.get, uri: uri);
 
-    print('S3_CLIENT: Signing LIST request for $uri');
-    final signedRequest = await _signer.sign(
-      request,
-      credentialScope: _scope,
-    );
+    final signedRequest = await _signer.sign(request, credentialScope: _scope);
     
     final response = await _dio.getUri<dynamic>(
       uri,
@@ -84,7 +76,11 @@ class ArvanS3Client {
     );
   }
 
-  Future<void> putObject(String key, File file) async {
+  Future<void> putObject(
+    String key, 
+    File file, {
+    void Function(int sent, int total)? onProgress,
+  }) async {
     final bytes = await file.readAsBytes();
     final uri = Uri.parse('$_baseUrl/$key');
     
@@ -94,19 +90,16 @@ class ArvanS3Client {
       body: bytes,
       headers: const {
         AWSHeaders.contentType: 'image/jpeg',
-        'x-amz-acl': 'public-read', // هدر برای دسترسی پابلیک به فایل جدید
+        'x-amz-acl': 'public-read',
       },
     );
 
-    print('S3_CLIENT: Signing PUT request for $uri');
-    final signedRequest = await _signer.sign(
-      request,
-      credentialScope: _scope,
-    );
+    final signedRequest = await _signer.sign(request, credentialScope: _scope);
 
     await _dio.putUri<dynamic>(
       uri,
       data: Stream.fromIterable([bytes]),
+      onSendProgress: onProgress, // گزارش پیشرفت به Dio
       options: Options(
         headers: signedRequest.headers,
         contentType: 'image/jpeg',
@@ -116,17 +109,9 @@ class ArvanS3Client {
 
   Future<void> deleteObject(String key) async {
     final uri = Uri.parse('$_baseUrl/$key');
-    
-    final request = AWSHttpRequest(
-      method: AWSHttpMethod.delete,
-      uri: uri,
-    );
+    final request = AWSHttpRequest(method: AWSHttpMethod.delete, uri: uri);
 
-    print('S3_CLIENT: Signing DELETE request for $uri');
-    final signedRequest = await _signer.sign(
-      request,
-      credentialScope: _scope,
-    );
+    final signedRequest = await _signer.sign(request, credentialScope: _scope);
 
     await _dio.deleteUri<dynamic>(
       uri,

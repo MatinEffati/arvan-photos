@@ -9,7 +9,10 @@ class UploadPhotoUseCase {
   UploadPhotoUseCase(this.repository);
   final PhotoCommandRepository repository;
 
-  Future<Either<Failure, Unit>> call(File file) async {
-    return repository.uploadPhoto(file);
+  Future<Either<Failure, Unit>> call(
+    File file, {
+    void Function(double progress)? onProgress,
+  }) async {
+    return repository.uploadPhoto(file, onProgress: onProgress);
   }
 }

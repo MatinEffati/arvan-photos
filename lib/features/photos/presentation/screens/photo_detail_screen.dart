@@ -51,6 +51,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         AndroidUiSettings(
           toolbarTitle: 'Edit Photo',
           toolbarColor: AppColors.primary,
+          statusBarColor: AppColors.primary, // تنظیم رنگ استاتوس بار برای جلوگیری از تداخل
           toolbarWidgetColor: Colors.white,
           initAspectRatio: CropAspectRatioPreset.original,
           lockAspectRatio: false,
@@ -147,6 +148,8 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                 return PhotoViewGalleryPageOptions(
                   imageProvider: CachedNetworkImageProvider(widget.photos[index].url),
                   initialScale: PhotoViewComputedScale.contained,
+                  minScale: PhotoViewComputedScale.contained * 1.0,
+                  maxScale: PhotoViewComputedScale.covered * 4.0,
                   heroAttributes: PhotoViewHeroAttributes(tag: widget.photos[index].key),
                 );
               },

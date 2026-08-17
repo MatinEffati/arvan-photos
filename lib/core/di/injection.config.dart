@@ -64,9 +64,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i1014.GetPhotosUseCase>(
       () => _i1014.GetPhotosUseCase(gh<_i591.PhotoQueryRepository>()),
     );
-    gh.factory<_i303.PhotosBloc>(
-      () => _i303.PhotosBloc(gh<_i1014.GetPhotosUseCase>()),
-    );
     gh.factory<_i470.DeleteMultiplePhotosUseCase>(
       () =>
           _i470.DeleteMultiplePhotosUseCase(gh<_i666.PhotoCommandRepository>()),
@@ -82,6 +79,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i73.UploadBloc>(
       () => _i73.UploadBloc(gh<_i209.UploadPhotoUseCase>()),
+    );
+    gh.factory<_i303.PhotosBloc>(
+      () => _i303.PhotosBloc(
+        gh<_i1014.GetPhotosUseCase>(),
+        gh<_i470.DeleteMultiplePhotosUseCase>(),
+      ),
     );
     gh.factory<_i225.PhotoDetailCubit>(
       () => _i225.PhotoDetailCubit(

@@ -11,6 +11,7 @@ part 'upload_state.dart';
 class UploadBloc extends Bloc<UploadEvent, UploadState> {
   UploadBloc(this._uploadPhotoUseCase) : super(UploadInitial()) {
     on<UploadStarted>(_onUploadStarted);
+    on<UploadProgressUpdated>(_onUploadProgressUpdated);
   }
 
   final UploadPhotoUseCase _uploadPhotoUseCase;
@@ -19,11 +20,41 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     UploadStarted event,
     Emitter<UploadState> emit,
   ) async {
-    emit(const UploadInProgress(0));
-    final result = await _uploadPhotoUseCase(event.file);
-    result.fold(
-      (failure) => emit(UploadFailure(failure.message)),
-      (_) => emit(UploadSuccess()),
-    );
+    final totalFiles = event.files.length;
+    emit(UploadInProgress(0, totalFiles: totalFiles, currentFileIndex: 0));
+
+    for (var i = 0; i < totalFiles; i++) {
+      final file = event.files[i];
+      final result = await _uploadPhotoUseCase(
+        file,
+        onProgress: (fileProgress) {
+          add(UploadProgressUpdated((i + fileProgress) / totalFiles));
+        },
+      );
+
+      if (result.isLeft()) {
+        result.fold(
+          (failure) => emit(UploadFailure(failure.message)),
+          (_) => null,
+        );
+        return;
+      }
+    }
+
+    emit(UploadSuccess());
+  }
+
+  void _onUploadProgressUpdated(
+    UploadProgressUpdated event,
+    Emitter<UploadState> emit,
+  ) {
+    if (state is UploadInProgress) {
+      final current = state as UploadInProgress;
+      emit(UploadInProgress(
+        event.progress,
+        totalFiles: current.totalFiles,
+        currentFileIndex: (event.progress * current.totalFiles).floor(),
+      ));
+    }
   }
 }

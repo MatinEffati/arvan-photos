@@ -24,3 +24,15 @@ class PhotosSortChanged extends PhotosEvent {
   @override
   List<Object?> get props => [sortOption];
 }
+
+class PhotoSelectionToggled extends PhotosEvent {
+  const PhotoSelectionToggled(this.photoKey);
+  final String photoKey;
+
+  @override
+  List<Object?> get props => [photoKey];
+}
+
+class PhotosSelectionCleared extends PhotosEvent {}
+
+class MultiplePhotosDeleteRequested extends PhotosEvent {}

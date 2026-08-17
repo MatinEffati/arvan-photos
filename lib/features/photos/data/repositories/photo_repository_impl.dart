@@ -45,12 +45,24 @@ class PhotoRepositoryImpl
   }
 
   @override
-  Future<Either<Failure, Unit>> uploadPhoto(File file) async {
+  Future<Either<Failure, Unit>> uploadPhoto(
+    File file, {
+    void Function(double progress)? onProgress,
+  }) async {
     try {
       final fileName = file.path.split('/').last;
       final extension = fileName.split('.').last;
       final key = 'photos/${_uuid.v4()}.$extension';
-      await s3client.putObject(key, file);
+      
+      await s3client.putObject(
+        key, 
+        file,
+        onProgress: (sent, total) {
+          if (onProgress != null && total > 0) {
+            onProgress(sent / total);
+          }
+        },
+      );
       return const Right(unit);
     } catch (e) {
       return Left(ErrorMapper.map(e));
