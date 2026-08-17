@@ -9,10 +9,16 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:arvan_photos/core/config/app_config.dart' as _i835;
 import 'package:arvan_photos/core/di/core_module.dart' as _i234;
 import 'package:arvan_photos/core/di/repository_module.dart' as _i774;
-import 'package:arvan_photos/features/photos/data/datasources/arvan_s3_client.dart'
-    as _i273;
+import 'package:arvan_photos/core/network/arvan_s3_client.dart' as _i209;
+import 'package:arvan_photos/features/photos/data/datasources/photo_key_generator.dart'
+    as _i871;
+import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data_source.dart'
+    as _i540;
+import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data_source_impl.dart'
+    as _i1058;
 import 'package:arvan_photos/features/photos/data/repositories/photo_repository_impl.dart'
     as _i207;
 import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart'
@@ -48,12 +54,22 @@ extension GetItInjectableX on _i174.GetIt {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
     final coreModule = _$CoreModule();
     final repositoryModule = _$RepositoryModule();
+    gh.lazySingleton<_i835.AppConfig>(() => _i835.AppConfig());
     gh.lazySingleton<_i361.Dio>(() => coreModule.dio);
-    gh.lazySingleton<_i273.ArvanS3Client>(
-      () => _i273.ArvanS3Client(gh<_i361.Dio>()),
+    gh.lazySingleton<_i209.ArvanS3Client>(
+      () => _i209.ArvanS3Client(gh<_i361.Dio>(), gh<_i835.AppConfig>()),
+    );
+    gh.lazySingleton<_i871.PhotoKeyGenerator>(
+      () => _i871.S3PhotoKeyGenerator(),
+    );
+    gh.lazySingleton<_i540.PhotosRemoteDataSource>(
+      () => _i1058.PhotosRemoteDataSourceImpl(gh<_i209.ArvanS3Client>()),
     );
     gh.lazySingleton<_i207.PhotoRepositoryImpl>(
-      () => _i207.PhotoRepositoryImpl(gh<_i273.ArvanS3Client>()),
+      () => _i207.PhotoRepositoryImpl(
+        gh<_i540.PhotosRemoteDataSource>(),
+        gh<_i871.PhotoKeyGenerator>(),
+      ),
     );
     gh.lazySingleton<_i591.PhotoQueryRepository>(
       () => repositoryModule.queryRepository(gh<_i207.PhotoRepositoryImpl>()),

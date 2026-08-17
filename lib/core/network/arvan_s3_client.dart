@@ -1,46 +1,33 @@
 import 'dart:io';
+import 'package:arvan_photos/core/config/app_config.dart';
+import 'package:arvan_photos/core/network/models/s3_list_response.dart';
 import 'package:aws_common/aws_common.dart';
 import 'package:aws_signature_v4/aws_signature_v4.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:injectable/injectable.dart';
 import 'package:xml/xml.dart';
 
-class S3ListResponse {
-  S3ListResponse({required this.contents, this.nextContinuationToken});
-  final List<XmlElement> contents;
-  final String? nextContinuationToken;
-}
-
 @lazySingleton
 class ArvanS3Client {
-  ArvanS3Client(this._dio) {
-    _baseUrl = dotenv.env['ARVAN_ENDPOINT'] ?? '';
-    _region = dotenv.env['ARVAN_REGION'] ?? '';
-    _accessKey = dotenv.env['ARVAN_ACCESS_KEY'] ?? '';
-    _secretKey = dotenv.env['ARVAN_SECRET_KEY'] ?? '';
-    
+  ArvanS3Client(this._dio, this._config) {
     _signer = AWSSigV4Signer(
       credentialsProvider: AWSCredentialsProvider(
-        AWSCredentials(_accessKey, _secretKey),
+        AWSCredentials(_config.arvanAccessKey, _config.arvanSecretKey),
       ),
     );
 
     _scope = AWSCredentialScope(
-      region: _region,
+      region: _config.arvanRegion,
       service: AWSService.s3,
     );
   }
 
   final Dio _dio;
-  late final String _baseUrl;
-  late final String _region;
-  late final String _accessKey;
-  late final String _secretKey;
+  final AppConfig _config;
   late final AWSSigV4Signer _signer;
   late final AWSCredentialScope _scope;
 
-  String get baseUrl => _baseUrl;
+  String get baseUrl => _config.arvanEndpoint;
 
   Future<S3ListResponse> listObjects({
     String? continuationToken,
@@ -56,7 +43,7 @@ class ArvanS3Client {
         .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
         .join('&');
     
-    final uri = Uri.parse('$_baseUrl/?$queryString');
+    final uri = Uri.parse('$baseUrl/?$queryString');
     final request = AWSHttpRequest(method: AWSHttpMethod.get, uri: uri);
 
     final signedRequest = await _signer.sign(request, credentialScope: _scope);
@@ -82,7 +69,7 @@ class ArvanS3Client {
     void Function(int sent, int total)? onProgress,
   }) async {
     final bytes = await file.readAsBytes();
-    final uri = Uri.parse('$_baseUrl/$key');
+    final uri = Uri.parse('$baseUrl/$key');
     
     final request = AWSHttpRequest(
       method: AWSHttpMethod.put,
@@ -99,7 +86,7 @@ class ArvanS3Client {
     await _dio.putUri<dynamic>(
       uri,
       data: Stream.fromIterable([bytes]),
-      onSendProgress: onProgress, // گزارش پیشرفت به Dio
+      onSendProgress: onProgress,
       options: Options(
         headers: signedRequest.headers,
         contentType: 'image/jpeg',
@@ -108,7 +95,7 @@ class ArvanS3Client {
   }
 
   Future<void> deleteObject(String key) async {
-    final uri = Uri.parse('$_baseUrl/$key');
+    final uri = Uri.parse('$baseUrl/$key');
     final request = AWSHttpRequest(method: AWSHttpMethod.delete, uri: uri);
 
     final signedRequest = await _signer.sign(request, credentialScope: _scope);

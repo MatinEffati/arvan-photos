@@ -1,4 +1,4 @@
-import 'package:arvan_photos/features/navigation_stub/presentation/screens/empty_state_screen.dart';
+import 'package:arvan_photos/core/presentation/widgets/empty_state_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/photos_screen.dart';
 import 'package:flutter/material.dart';
 

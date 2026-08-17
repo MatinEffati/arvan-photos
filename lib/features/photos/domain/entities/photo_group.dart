@@ -1,5 +1,5 @@
+import 'package:arvan_photos/features/photos/domain/entities/photo_entity.dart';
 import 'package:equatable/equatable.dart';
-import 'photo_entity.dart';
 
 class PhotoGroup extends Equatable {
   const PhotoGroup({

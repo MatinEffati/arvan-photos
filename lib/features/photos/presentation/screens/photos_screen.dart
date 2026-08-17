@@ -186,6 +186,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                             if (state.isSelectionMode) {
                               context.read<PhotosBloc>().add(PhotoSelectionToggled(photo.key));
                             } else {
+                              final photosBloc = context.read<PhotosBloc>();
                               Navigator.push<bool>(
                                 context,
                                 MaterialPageRoute<bool>(
@@ -195,8 +196,8 @@ class _PhotosScreenState extends State<PhotosScreen> {
                                   ),
                                 ),
                               ).then((value) {
-                                if (value == true && mounted) {
-                                  context.read<PhotosBloc>().add(const PhotosRequested(isRefresh: true));
+                                if (value ?? false) {
+                                  photosBloc.add(const PhotosRequested(isRefresh: true));
                                 }
                               });
                             }
@@ -286,7 +287,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
   }
 
   void _confirmBulkDelete(BuildContext context) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Photos'),

@@ -10,7 +10,6 @@ abstract class CoreModule {
       LogInterceptor(
         requestBody: true,
         responseBody: true,
-        logPrint: (object) => print('DIO_LOG: $object'),
       ),
     );
     return dio;

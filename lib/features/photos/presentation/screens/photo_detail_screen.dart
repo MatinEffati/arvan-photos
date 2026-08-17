@@ -51,7 +51,8 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         AndroidUiSettings(
           toolbarTitle: 'Edit Photo',
           toolbarColor: AppColors.primary,
-          statusBarColor: AppColors.primary, // تنظیم رنگ استاتوس بار برای جلوگیری از تداخل
+          // ignore: deprecated_member_use
+          statusBarColor: AppColors.primary, 
           toolbarWidgetColor: Colors.white,
           initAspectRatio: CropAspectRatioPreset.original,
           lockAspectRatio: false,
@@ -63,7 +64,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     );
 
     if (croppedFile != null) {
-      cubit.editPhoto(photo.key, File(croppedFile.path));
+      await cubit.editPhoto(photo.key, File(croppedFile.path));
     }
   }
 
@@ -123,7 +124,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
               actions: [
                 if (state is PhotoDetailActionInProgress)
                   const Padding(
-                    padding: EdgeInsets.all(16.0),
+                    padding: EdgeInsets.all(16),
                     child: SizedBox(
                       width: 20,
                       height: 20,
@@ -148,8 +149,8 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                 return PhotoViewGalleryPageOptions(
                   imageProvider: CachedNetworkImageProvider(widget.photos[index].url),
                   initialScale: PhotoViewComputedScale.contained,
-                  minScale: PhotoViewComputedScale.contained * 1.0,
-                  maxScale: PhotoViewComputedScale.covered * 4.0,
+                  minScale: PhotoViewComputedScale.contained * 1,
+                  maxScale: PhotoViewComputedScale.covered * 4,
                   heroAttributes: PhotoViewHeroAttributes(tag: widget.photos[index].key),
                 );
               },

@@ -1,5 +1,5 @@
+import 'package:arvan_photos/features/photos/domain/entities/photo_entity.dart';
 import 'package:equatable/equatable.dart';
-import 'photo_entity.dart';
 
 class PaginatedPhotos extends Equatable {
   const PaginatedPhotos({
@@ -9,8 +9,6 @@ class PaginatedPhotos extends Equatable {
 
   final List<PhotoEntity> photos;
   final String? nextContinuationToken;
-
-  bool get hasMore => nextContinuationToken != null;
 
   @override
   List<Object?> get props => [photos, nextContinuationToken];
