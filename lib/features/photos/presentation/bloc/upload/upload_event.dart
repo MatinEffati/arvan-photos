@@ -24,3 +24,9 @@ class UploadTaskUpdated extends UploadEvent {
 }
 
 class UploadResetRequested extends UploadEvent {}
+
+class UploadStatusRequested extends UploadEvent {}
+
+class UploadPausedRequested extends UploadEvent {}
+
+class UploadResumeRequested extends UploadEvent {}

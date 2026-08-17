@@ -11,7 +11,7 @@ abstract class DatabaseModule {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE sync_registry (
@@ -21,7 +21,25 @@ abstract class DatabaseModule {
             synced_at TEXT
           )
         ''');
+        await _createUploadTasksTable(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await _createUploadTasksTable(db);
+        }
       },
     );
+  }
+
+  Future<void> _createUploadTasksTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE upload_tasks (
+        id TEXT PRIMARY KEY,
+        file_path TEXT NOT NULL,
+        progress REAL NOT NULL,
+        status TEXT NOT NULL,
+        error_message TEXT
+      )
+    ''');
   }
 }

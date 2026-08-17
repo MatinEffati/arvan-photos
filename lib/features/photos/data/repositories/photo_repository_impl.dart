@@ -9,6 +9,7 @@ import 'package:arvan_photos/features/photos/domain/entities/paginated_photos.da
 import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
 import 'package:arvan_photos/features/photos/domain/repositories/photo_query_repository.dart';
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
 
 @lazySingleton
@@ -46,6 +47,7 @@ class PhotoRepositoryImpl
   Future<Either<Failure, Unit>> uploadPhoto(
     File file, {
     void Function(double progress)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     try {
       final key = keyGenerator.generateKey(file.path);
@@ -53,6 +55,7 @@ class PhotoRepositoryImpl
       await remoteDataSource.uploadPhoto(
         key, 
         file,
+        cancelToken: cancelToken,
         onProgress: (sent, total) {
           if (onProgress != null && total > 0) {
             onProgress(sent / total);

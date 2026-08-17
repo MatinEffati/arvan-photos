@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:sqflite/sqflite.dart';
 
 class PhotosScreen extends StatefulWidget {
@@ -33,9 +34,17 @@ class _PhotosScreenState extends State<PhotosScreen> {
   @override
   void initState() {
     super.initState();
+    _requestPermissions();
     context.read<PhotosBloc>().add(const PhotosRequested());
     context.read<SyncBloc>().add(SyncRequested());
+    context.read<UploadBloc>().add(UploadStatusRequested());
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _requestPermissions() async {
+    if (Platform.isAndroid) {
+      await Permission.notification.request();
+    }
   }
 
   @override

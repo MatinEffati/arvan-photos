@@ -50,7 +50,25 @@ class UploadProgressOverlay extends StatelessWidget {
                       Text('${(overallProgress * 100).toInt()}%'),
                       const SizedBox(width: AppSpacing.s),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 20),
+                        icon: Icon(
+                          tasks.any((t) => t.status == UploadStatus.uploading) 
+                            ? Icons.pause_circle_outline 
+                            : Icons.play_circle_outline,
+                          size: 24,
+                        ),
+                        onPressed: () {
+                          if (tasks.any((t) => t.status == UploadStatus.uploading)) {
+                            context.read<UploadBloc>().add(UploadPausedRequested());
+                          } else {
+                            context.read<UploadBloc>().add(UploadResumeRequested());
+                          }
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: AppSpacing.s),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 24),
                         onPressed: () {
                           context.read<UploadBloc>().add(UploadResetRequested());
                         },
@@ -114,6 +132,9 @@ class _UploadTaskItem extends StatelessWidget {
       case UploadStatus.failure:
         color = Colors.red;
         icon = const Icon(Icons.error_outline, size: 16, color: Colors.red);
+      case UploadStatus.paused:
+        color = Colors.orange;
+        icon = const Icon(Icons.pause_circle_filled, size: 16, color: Colors.orange);
     }
 
     return Container(

@@ -45,9 +45,15 @@ class PhotosRemoteDataSourceImpl implements PhotosRemoteDataSource {
     String key,
     File file, {
     void Function(int sent, int total)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     try {
-      await _client.putObject(key, file, onProgress: onProgress);
+      await _client.putObject(
+        key,
+        file,
+        onProgress: onProgress,
+        cancelToken: cancelToken,
+      );
     } on DioException catch (e) {
       throw _handleDioException(e);
     } catch (e) {

@@ -24,6 +24,8 @@ import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data
     as _i1058;
 import 'package:arvan_photos/features/photos/data/datasources/sync_local_datasource.dart'
     as _i635;
+import 'package:arvan_photos/features/photos/data/datasources/upload_local_datasource.dart'
+    as _i638;
 import 'package:arvan_photos/features/photos/data/repositories/photo_repository_impl.dart'
     as _i207;
 import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart'
@@ -80,8 +82,14 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i635.SyncLocalDataSource>(
       () => _i635.SyncLocalDataSourceImpl(gh<_i779.Database>()),
     );
+    gh.lazySingleton<_i638.UploadLocalDataSource>(
+      () => _i638.UploadLocalDataSourceImpl(gh<_i779.Database>()),
+    );
     gh.lazySingleton<_i871.PhotoKeyGenerator>(
       () => _i871.S3PhotoKeyGenerator(),
+    );
+    gh.factory<_i73.UploadBloc>(
+      () => _i73.UploadBloc(gh<_i638.UploadLocalDataSource>()),
     );
     gh.lazySingleton<_i540.PhotosRemoteDataSource>(
       () => _i1058.PhotosRemoteDataSourceImpl(gh<_i209.ArvanS3Client>()),
@@ -114,9 +122,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i209.UploadPhotoUseCase>(
       () => _i209.UploadPhotoUseCase(gh<_i666.PhotoCommandRepository>()),
-    );
-    gh.factory<_i73.UploadBloc>(
-      () => _i73.UploadBloc(gh<_i209.UploadPhotoUseCase>()),
     );
     gh.factory<_i340.SyncGalleryUseCase>(
       () => _i340.SyncGalleryUseCase(

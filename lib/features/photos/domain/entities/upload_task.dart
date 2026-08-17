@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:equatable/equatable.dart';
 
-enum UploadStatus { pending, uploading, success, failure }
+enum UploadStatus { pending, uploading, success, failure, paused }
 
 class UploadTask extends Equatable {
   const UploadTask({

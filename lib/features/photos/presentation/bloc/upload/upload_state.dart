@@ -1,4 +1,3 @@
-import 'package:arvan_photos/features/photos/domain/entities/upload_task.dart';
 part of 'upload_bloc.dart';
 
 abstract class UploadState extends Equatable {

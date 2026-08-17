@@ -4,6 +4,8 @@ import 'package:arvan_photos/features/photos/domain/repositories/photo_command_r
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 
+import 'package:dio/dio.dart';
+
 @injectable
 class UploadPhotoUseCase {
   UploadPhotoUseCase(this.repository);
@@ -12,7 +14,12 @@ class UploadPhotoUseCase {
   Future<Either<Failure, Unit>> call(
     File file, {
     void Function(double progress)? onProgress,
+    CancelToken? cancelToken,
   }) async {
-    return repository.uploadPhoto(file, onProgress: onProgress);
+    return repository.uploadPhoto(
+      file,
+      onProgress: onProgress,
+      cancelToken: cancelToken,
+    );
   }
 }

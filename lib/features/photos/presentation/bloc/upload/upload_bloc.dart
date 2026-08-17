@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:arvan_photos/core/services/notification_service.dart';
+import 'package:arvan_photos/features/photos/data/datasources/upload_local_datasource.dart';
 import 'package:arvan_photos/features/photos/domain/entities/upload_task.dart';
-import 'package:arvan_photos/features/photos/domain/usecases/upload_photo_usecase.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:uuid/uuid.dart';
@@ -11,22 +14,59 @@ part 'upload_state.dart';
 
 @injectable
 class UploadBloc extends Bloc<UploadEvent, UploadState> {
-  UploadBloc(this._uploadPhotoUseCase) : super(UploadInitial()) {
+  UploadBloc(this._localDataSource) : super(UploadInitial()) {
     on<UploadStarted>(_onUploadStarted);
     on<UploadTaskUpdated>(_onUploadTaskUpdated);
     on<UploadResetRequested>(_onUploadResetRequested);
+    on<UploadStatusRequested>(_onUploadStatusRequested);
+    on<UploadPausedRequested>(_onUploadPausedRequested);
+    on<UploadResumeRequested>(_onUploadResumeRequested);
+
+    _statusSubscription = FlutterBackgroundService().on('update').listen((event) {
+      add(UploadStatusRequested());
+    });
+    
+    _completedSubscription = FlutterBackgroundService().on('completed').listen((event) {
+      add(UploadStatusRequested());
+    });
   }
 
-  final UploadPhotoUseCase _uploadPhotoUseCase;
+  final UploadLocalDataSource _localDataSource;
   final _uuid = const Uuid();
-  bool _isProcessing = false;
+  StreamSubscription<Map<String, dynamic>?>? _statusSubscription;
+  StreamSubscription<Map<String, dynamic>?>? _completedSubscription;
 
-  void _onUploadResetRequested(
-    UploadResetRequested event,
+  @override
+  Future<void> close() {
+    _statusSubscription?.cancel();
+    _completedSubscription?.cancel();
+    return super.close();
+  }
+
+  Future<void> _onUploadStatusRequested(
+    UploadStatusRequested event,
+    Emitter<UploadState> emit,
+  ) async {
+    final tasks = await _localDataSource.getAllTasks();
+    if (tasks.isEmpty) {
+      emit(UploadInitial());
+    } else {
+      emit(UploadInProgress(tasks: tasks));
+    }
+  }
+
+  void _onUploadPausedRequested(
+    UploadPausedRequested event,
     Emitter<UploadState> emit,
   ) {
-    _isProcessing = false;
-    emit(UploadInitial());
+    FlutterBackgroundService().invoke('pause');
+  }
+
+  void _onUploadResumeRequested(
+    UploadResumeRequested event,
+    Emitter<UploadState> emit,
+  ) {
+    FlutterBackgroundService().invoke('resume');
   }
 
   Future<void> _onUploadStarted(
@@ -39,63 +79,18 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
       status: UploadStatus.pending,
     )).toList();
 
-    List<UploadTask> currentTasks = [];
-    if (state is UploadInProgress) {
-      currentTasks = List.from((state as UploadInProgress).tasks);
-    }
-    currentTasks.addAll(newTasks);
-
-    emit(UploadInProgress(tasks: currentTasks));
-
-    if (_isProcessing) return;
-    _isProcessing = true;
-
-    try {
-      while (true) {
-        final currentState = state;
-        if (currentState is! UploadInProgress) break;
-
-        final pendingIndex = currentState.tasks.indexWhere((t) => t.status == UploadStatus.pending);
-        if (pendingIndex == -1) break;
-
-        var task = currentState.tasks[pendingIndex];
-        add(UploadTaskUpdated(task.copyWith(status: UploadStatus.uploading)));
-
-        final result = await _uploadPhotoUseCase(
-          task.file,
-          onProgress: (progress) {
-            add(UploadTaskUpdated(task.copyWith(status: UploadStatus.uploading, progress: progress)));
-          },
-        );
-
-        result.fold(
-          (failure) {
-            add(UploadTaskUpdated(task.copyWith(status: UploadStatus.failure, errorMessage: failure.message, progress: 0.0)));
-          },
-          (_) {
-            add(UploadTaskUpdated(task.copyWith(status: UploadStatus.success, progress: 1.0)));
-          },
-        );
-        
-        // Brief delay between uploads to let the UI breathe
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      }
-    } finally {
-      _isProcessing = false;
+    for (final task in newTasks) {
+      await _localDataSource.addTask(task);
     }
 
-    // Check final status
-    final latestState = state;
-    if (latestState is UploadInProgress) {
-      final allFinished = latestState.tasks.every((t) => t.status == UploadStatus.success || t.status == UploadStatus.failure);
-      if (allFinished) {
-        final allSuccess = latestState.tasks.every((t) => t.status == UploadStatus.success);
-        if (allSuccess) {
-          emit(UploadSuccess());
-        } else {
-          emit(const UploadFailure('Some files failed to upload'));
-        }
-      }
+    final allTasks = await _localDataSource.getAllTasks();
+    emit(UploadInProgress(tasks: allTasks));
+
+    final service = FlutterBackgroundService();
+    final isRunning = await service.isRunning();
+    if (!isRunning) {
+      await NotificationService.ensureChannelCreated();
+      await service.startService();
     }
   }
 
@@ -111,5 +106,14 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
         emit(UploadInProgress(tasks: tasks));
       }
     }
+  }
+
+  Future<void> _onUploadResetRequested(
+    UploadResetRequested event,
+    Emitter<UploadState> emit,
+  ) async {
+    await _localDataSource.deleteAllTasks();
+    FlutterBackgroundService().invoke('stopService');
+    emit(UploadInitial());
   }
 }

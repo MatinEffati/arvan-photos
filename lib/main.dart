@@ -1,4 +1,6 @@
 import 'package:arvan_photos/core/di/injection.dart';
+import 'package:arvan_photos/core/services/background_upload_service.dart';
+import 'package:arvan_photos/core/services/notification_service.dart';
 import 'package:arvan_photos/core/theme/app_theme.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/sync/sync_bloc.dart';
@@ -10,13 +12,17 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print('######################################');
-  print('      HELLO FROM GEMINI - NEW BUILD   ');
-  print('######################################');
   
   // Load environment variables from assets/env file
   await dotenv.load(fileName: 'assets/env');
   
+  // Initialize notification service
+  await NotificationService.initialize();
+  await NotificationService.ensureChannelCreated();
+
+  // Initialize background service
+  await BackgroundUploadService.initialize();
+
   // Initialize dependency injection
   await configureDependencies();
   

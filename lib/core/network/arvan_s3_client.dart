@@ -68,6 +68,7 @@ class ArvanS3Client {
     String key, 
     File file, {
     void Function(int sent, int total)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     final bytes = await file.readAsBytes();
     final uri = Uri.parse('$baseUrl/$key');
@@ -86,8 +87,9 @@ class ArvanS3Client {
 
     await _dio.putUri<dynamic>(
       uri,
-      data: bytes, // ارسال مستقیم بایت‌ها به جای استریم
+      data: bytes, 
       onSendProgress: onProgress,
+      cancelToken: cancelToken,
       options: Options(
         headers: signedRequest.headers,
         contentType: 'image/jpeg',
