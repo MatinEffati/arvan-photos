@@ -1,3 +1,4 @@
+import 'package:arvan_photos/features/photos/domain/entities/upload_task.dart';
 part of 'upload_bloc.dart';
 
 abstract class UploadState extends Equatable {
@@ -10,18 +11,22 @@ abstract class UploadState extends Equatable {
 class UploadInitial extends UploadState {}
 
 class UploadInProgress extends UploadState {
-  const UploadInProgress(
-    this.progress, {
-    required this.totalFiles,
-    required this.currentFileIndex,
+  const UploadInProgress({
+    required this.tasks,
   });
 
-  final double progress;
-  final int totalFiles;
-  final int currentFileIndex;
+  final List<UploadTask> tasks;
+
+  double get overallProgress {
+    if (tasks.isEmpty) return 0.0;
+    return tasks.map((t) => t.progress).reduce((a, b) => a + b) / tasks.length;
+  }
+
+  int get completedCount => tasks.where((t) => t.status == UploadStatus.success).length;
+  int get totalCount => tasks.length;
 
   @override
-  List<Object?> get props => [progress, totalFiles, currentFileIndex];
+  List<Object?> get props => [tasks];
 }
 
 class UploadSuccess extends UploadState {}

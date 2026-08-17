@@ -12,6 +12,7 @@ import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_blo
 import 'package:arvan_photos/features/photos/presentation/screens/photo_detail_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/photo_grid_item.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/photo_shimmer.dart';
+import 'package:arvan_photos/features/photos/presentation/widgets/upload_progress_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -166,14 +167,23 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       ),
                       const PopupMenuDivider(),
                       PopupMenuItem(
-                        child: const Text('Clear Sync Cache', style: TextStyle(color: Colors.red)),
+                        child: const Text('Clear All Cache', style: TextStyle(color: Colors.red)),
                         onTap: () async {
                           final db = getIt<Database>();
                           await db.delete('sync_registry');
+                          
+                          // Clear memory image cache
+                          PaintingBinding.instance.imageCache.clear();
+                          PaintingBinding.instance.imageCache.clearLiveImages();
+                          
+                          // Reset upload queue
                           if (mounted) {
+                            context.read<UploadBloc>().add(UploadResetRequested());
+                            
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Sync cache cleared')),
+                              const SnackBar(content: Text('Cache and upload queue cleared')),
                             );
+                            
                             context.read<SyncBloc>().add(SyncRequested());
                           }
                         },
@@ -309,18 +319,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
   }
 
   Widget _buildUploadOverlay() {
-    return BlocBuilder<UploadBloc, UploadState>(
-      builder: (context, state) {
-        if (state is UploadInProgress) {
-          final displayIndex = (state.currentFileIndex + 1).clamp(1, state.totalFiles);
-          return _ProgressOverlay(
-            title: 'Uploading $displayIndex of ${state.totalFiles}...',
-            progress: state.progress,
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
+    return const UploadProgressOverlay();
   }
 
   Widget _buildSyncOverlay() {

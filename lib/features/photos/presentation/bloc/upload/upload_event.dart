@@ -15,15 +15,12 @@ class UploadStarted extends UploadEvent {
   List<Object?> get props => [files];
 }
 
-class UploadProgressUpdated extends UploadEvent {
-  const UploadProgressUpdated({
-    required this.progress,
-    required this.currentFileIndex,
-  });
-
-  final double progress;
-  final int currentFileIndex;
+class UploadTaskUpdated extends UploadEvent {
+  const UploadTaskUpdated(this.task);
+  final UploadTask task;
 
   @override
-  List<Object?> get props => [progress, currentFileIndex];
+  List<Object?> get props => [task];
 }
+
+class UploadResetRequested extends UploadEvent {}
