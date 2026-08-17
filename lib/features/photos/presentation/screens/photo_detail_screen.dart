@@ -37,7 +37,9 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     _pageController = PageController(initialPage: widget.initialIndex);
   }
 
-  Future<void> _editPhoto(PhotoEntity photo) async {
+  Future<void> _editPhoto(BuildContext context, PhotoEntity photo) async {
+    final cubit = context.read<PhotoDetailCubit>();
+    
     final response = await http.get(Uri.parse(photo.url));
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/temp_edit.jpg');
@@ -59,30 +61,35 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       ],
     );
 
-    if (croppedFile != null && mounted) {
-      context.read<PhotoDetailCubit>().editPhoto(photo.key, File(croppedFile.path));
+    if (croppedFile != null) {
+      cubit.editPhoto(photo.key, File(croppedFile.path));
     }
   }
 
-  void _confirmDelete(PhotoEntity photo) {
+  void _confirmDelete(BuildContext context, PhotoEntity photo) {
+    final cubit = context.read<PhotoDetailCubit>();
+    
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Photo'),
-        content: const Text('Are you sure you want to delete this photo?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<PhotoDetailCubit>().deletePhoto(photo.key);
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      builder: (dialogContext) => BlocProvider.value(
+        value: cubit,
+        child: AlertDialog(
+          title: const Text('Delete Photo'),
+          content: const Text('Are you sure you want to delete this photo?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                cubit.deletePhoto(photo.key);
+              },
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -125,11 +132,11 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                 else ...[
                   IconButton(
                     icon: const Icon(Icons.edit),
-                    onPressed: () => _editPhoto(currentPhoto),
+                    onPressed: () => _editPhoto(context, currentPhoto),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete),
-                    onPressed: () => _confirmDelete(currentPhoto),
+                    onPressed: () => _confirmDelete(context, currentPhoto),
                   ),
                 ]
               ],
