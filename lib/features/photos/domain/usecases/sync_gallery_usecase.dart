@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:arvan_photos/core/error/failures.dart';
 import 'package:arvan_photos/features/photos/data/datasources/device_gallery_datasource.dart';
 import 'package:arvan_photos/features/photos/data/datasources/sync_local_datasource.dart';
 import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 @injectable
@@ -19,56 +19,45 @@ class SyncGalleryUseCase {
   final PhotoCommandRepository _commandRepository;
 
   Future<Either<Failure, Unit>> call({
-    void Function(int current, int total)? onProgress,
+    void Function(int current, int total, double individualProgress)? onProgress,
   }) async {
     try {
-      debugPrint('SYNC_LOG: Starting sync process...');
       final assets = await _deviceDataSource.getLocalAssets();
-      debugPrint('SYNC_LOG: Local assets count: ${assets.length}');
-      
       if (assets.isEmpty) return const Right(unit);
 
-      // گرفتن لیست تمام عکس‌هایی که قبلاً سینک شده‌اند یا عمداً توسط کاربر پاک شده‌اند
       final registeredIds = await _syncLocalDataSource.getRegisteredIds();
-      debugPrint('SYNC_LOG: Registered IDs in DB (synced or deleted): ${registeredIds.length}');
-      
       final toSync = assets.where((a) => !registeredIds.contains(a.id)).toList();
-      debugPrint('SYNC_LOG: Assets to sync: ${toSync.length}');
 
       if (toSync.isEmpty) return const Right(unit);
 
       for (var i = 0; i < toSync.length; i++) {
         final asset = toSync[i];
-        print('SYNC_LOG: Syncing asset ${i + 1}/${toSync.length}: ${asset.id}');
-        
         final file = await asset.file;
-        if (file == null) {
-          print('SYNC_LOG: File is null for asset ${asset.id}, skipping...');
-          continue;
-        }
         
-        final result = await _commandRepository.uploadPhoto(file);
-        
-        await result.fold(
-          (failure) async {
-            print('SYNC_LOG: Failed to upload ${asset.id}: ${failure.message}');
-            await _syncLocalDataSource.markFailed(asset.id);
-          },
-          (_) async {
-            print('SYNC_LOG: Successfully uploaded ${asset.id}');
-            await _syncLocalDataSource.markSynced(asset.id, 'synced_${asset.id}');
-          },
-        );
-        
-        if (onProgress != null) {
-          onProgress(i + 1, toSync.length);
+        if (file != null) {
+          // گزارش شروع آپلود فایل فعلی (current = i)
+          onProgress?.call(i, toSync.length, 0.0);
+
+          final result = await _commandRepository.uploadPhoto(
+            file,
+            onProgress: (individualProgress) {
+              onProgress?.call(i, toSync.length, individualProgress);
+            },
+          );
+          
+          await result.fold(
+            (failure) async => await _syncLocalDataSource.markFailed(asset.id),
+            (_) async {
+              await _syncLocalDataSource.markSynced(asset.id, 'synced_${asset.id}');
+              // بعد از اتمام آپلود این فایل، پیشرفت آن را 1.0 گزارش می‌دهیم
+              onProgress?.call(i, toSync.length, 1.0);
+            },
+          );
         }
       }
 
-      print('SYNC_LOG: Sync process finished');
       return const Right(unit);
     } catch (e) {
-      print('SYNC_LOG: Error during sync: $e');
       return Left(UnknownFailure(e.toString()));
     }
   }

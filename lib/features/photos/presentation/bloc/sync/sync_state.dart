@@ -13,15 +13,21 @@ class SyncInProgress extends SyncState {
   const SyncInProgress({
     required this.current,
     required this.total,
+    this.individualProgress = 0.0,
   });
 
   final int current;
   final int total;
+  final double individualProgress;
 
-  double get progress => total > 0 ? current / total : 0;
+  double get progress {
+    if (total <= 0) return 0;
+    // محاسبه پیشرفت کل: فایل‌های قبلی + پیشرفت فایل فعلی
+    return (current + individualProgress) / total;
+  }
 
   @override
-  List<Object?> get props => [current, total];
+  List<Object?> get props => [current, total, individualProgress];
 }
 
 class SyncCompleted extends SyncState {}

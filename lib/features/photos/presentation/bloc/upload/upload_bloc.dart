@@ -28,7 +28,10 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
       final result = await _uploadPhotoUseCase(
         file,
         onProgress: (fileProgress) {
-          add(UploadProgressUpdated((i + fileProgress) / totalFiles));
+          add(UploadProgressUpdated(
+            progress: (i + fileProgress) / totalFiles,
+            currentFileIndex: i,
+          ));
         },
       );
 
@@ -53,7 +56,7 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
       emit(UploadInProgress(
         event.progress,
         totalFiles: current.totalFiles,
-        currentFileIndex: (event.progress * current.totalFiles).floor(),
+        currentFileIndex: event.currentFileIndex,
       ));
     }
   }

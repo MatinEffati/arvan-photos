@@ -312,8 +312,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
     return BlocBuilder<UploadBloc, UploadState>(
       builder: (context, state) {
         if (state is UploadInProgress) {
+          final displayIndex = (state.currentFileIndex + 1).clamp(1, state.totalFiles);
           return _ProgressOverlay(
-            title: 'Uploading ${state.currentFileIndex + 1} of ${state.totalFiles}...',
+            title: 'Uploading $displayIndex of ${state.totalFiles}...',
             progress: state.progress,
           );
         }
@@ -326,8 +327,10 @@ class _PhotosScreenState extends State<PhotosScreen> {
     return BlocBuilder<SyncBloc, SyncState>(
       builder: (context, state) {
         if (state is SyncInProgress && state.total > 0) {
+          // ایندکس نمایشی: (ایندکس فعلی + 1) محدود بین 1 و کل
+          final displayIndex = (state.current + 1).clamp(1, state.total);
           return _ProgressOverlay(
-            title: 'Syncing ${state.current} of ${state.total}...',
+            title: 'Syncing $displayIndex of ${state.total}...',
             progress: state.progress,
           );
         }

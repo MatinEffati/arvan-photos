@@ -26,11 +26,17 @@ class SyncBloc extends Bloc<SyncEvent, SyncState> {
     }
 
     _isSyncing = true;
-    print('SYNC_LOG: Starting UseCase call');
+    emit(const SyncInProgress(current: 0, total: 0));
 
     final result = await _syncGalleryUseCase(
-      onProgress: (current, total) {
-        emit(SyncInProgress(current: current, total: total));
+      onProgress: (current, total, individualProgress) {
+        if (!isClosed) {
+          emit(SyncInProgress(
+            current: current,
+            total: total,
+            individualProgress: individualProgress,
+          ));
+        }
       },
     );
 

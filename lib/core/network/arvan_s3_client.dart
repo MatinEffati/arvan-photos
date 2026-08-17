@@ -86,7 +86,7 @@ class ArvanS3Client {
 
     await _dio.putUri<dynamic>(
       uri,
-      data: Stream.fromIterable([bytes]),
+      data: bytes, // ارسال مستقیم بایت‌ها به جای استریم
       onSendProgress: onProgress,
       options: Options(
         headers: signedRequest.headers,

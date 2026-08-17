@@ -16,9 +16,14 @@ class UploadStarted extends UploadEvent {
 }
 
 class UploadProgressUpdated extends UploadEvent {
-  const UploadProgressUpdated(this.progress);
+  const UploadProgressUpdated({
+    required this.progress,
+    required this.currentFileIndex,
+  });
+
   final double progress;
+  final int currentFileIndex;
 
   @override
-  List<Object?> get props => [progress];
+  List<Object?> get props => [progress, currentFileIndex];
 }
