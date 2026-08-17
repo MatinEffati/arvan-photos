@@ -11,8 +11,10 @@ import 'package:injectable/injectable.dart';
 import 'package:uuid/uuid.dart';
 
 @lazySingleton
-class PhotoRepositoryImpl implements PhotoQueryRepository, PhotoCommandRepository {
+class PhotoRepositoryImpl
+    implements PhotoQueryRepository, PhotoCommandRepository {
   PhotoRepositoryImpl(this.s3client);
+
   final ArvanS3Client s3client;
   final _uuid = const Uuid();
 
@@ -26,14 +28,17 @@ class PhotoRepositoryImpl implements PhotoQueryRepository, PhotoCommandRepositor
         continuationToken: continuationToken,
         maxKeys: maxKeys,
       );
+
       final photos = response.contents
           .map((e) => PhotoModel.fromXmlElement(e, s3client.baseUrl))
           .toList();
-      
-      return Right(PaginatedPhotos(
-        photos: photos,
-        nextContinuationToken: response.nextContinuationToken,
-      ));
+
+      return Right(
+        PaginatedPhotos(
+          photos: photos,
+          nextContinuationToken: response.nextContinuationToken,
+        ),
+      );
     } catch (e) {
       return Left(ErrorMapper.map(e));
     }

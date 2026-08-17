@@ -19,6 +19,17 @@ class ArvanS3Client {
     _region = dotenv.env['ARVAN_REGION'] ?? '';
     _accessKey = dotenv.env['ARVAN_ACCESS_KEY'] ?? '';
     _secretKey = dotenv.env['ARVAN_SECRET_KEY'] ?? '';
+    
+    _signer = AWSSigV4Signer(
+      credentialsProvider: AWSCredentialsProvider(
+        AWSCredentials(_accessKey, _secretKey),
+      ),
+    );
+
+    _scope = AWSCredentialScope(
+      region: _region,
+      service: AWSService.s3,
+    );
   }
 
   final Dio _dio;
@@ -26,6 +37,8 @@ class ArvanS3Client {
   late final String _region;
   late final String _accessKey;
   late final String _secretKey;
+  late final AWSSigV4Signer _signer;
+  late final AWSCredentialScope _scope;
 
   String get baseUrl => _baseUrl;
 
@@ -50,7 +63,11 @@ class ArvanS3Client {
       uri: uri,
     );
 
-    final signedRequest = await _signRequest(request);
+    print('S3_CLIENT: Signing LIST request for $uri');
+    final signedRequest = await _signer.sign(
+      request,
+      credentialScope: _scope,
+    );
     
     final response = await _dio.getUri<dynamic>(
       uri,
@@ -77,10 +94,15 @@ class ArvanS3Client {
       body: bytes,
       headers: const {
         AWSHeaders.contentType: 'image/jpeg',
+        'x-amz-acl': 'public-read', // هدر برای دسترسی پابلیک به فایل جدید
       },
     );
 
-    final signedRequest = await _signRequest(request);
+    print('S3_CLIENT: Signing PUT request for $uri');
+    final signedRequest = await _signer.sign(
+      request,
+      credentialScope: _scope,
+    );
 
     await _dio.putUri<dynamic>(
       uri,
@@ -100,29 +122,15 @@ class ArvanS3Client {
       uri: uri,
     );
 
-    final signedRequest = await _signRequest(request);
+    print('S3_CLIENT: Signing DELETE request for $uri');
+    final signedRequest = await _signer.sign(
+      request,
+      credentialScope: _scope,
+    );
 
     await _dio.deleteUri<dynamic>(
       uri,
       options: Options(headers: signedRequest.headers),
-    );
-  }
-
-  Future<AWSSignedRequest> _signRequest(AWSBaseHttpRequest request) async {
-    final signer = AWSSigV4Signer(
-      credentialsProvider: AWSCredentialsProvider(
-        AWSCredentials(_accessKey, _secretKey),
-      ),
-    );
-
-    final scope = AWSCredentialScope(
-      region: _region,
-      service: AWSService.s3,
-    );
-
-    return signer.sign(
-      request,
-      credentialScope: scope,
     );
   }
 }

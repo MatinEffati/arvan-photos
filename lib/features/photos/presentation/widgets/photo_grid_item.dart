@@ -15,6 +15,7 @@ class PhotoGridItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('DISPLAY_URL: ${photo.url}');
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(

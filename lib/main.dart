@@ -10,8 +10,8 @@ import 'features/photos/presentation/screens/main_navigation_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load environment variables from .env file
-  await dotenv.load(fileName: '.env');
+  // Load environment variables from assets/env file
+  await dotenv.load(fileName: 'assets/env');
   
   // Initialize dependency injection
   configureDependencies();

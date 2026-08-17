@@ -17,7 +17,7 @@ class ErrorMapper {
           } else if (statusCode == 404) {
             return const ServerFailure('Resource Not Found (404)');
           } else if (statusCode != null && statusCode >= 500) {
-            return const ServerFailure('Internal Server Error ($statusCode)');
+            return ServerFailure('Internal Server Error ($statusCode)');
           }
           return ServerFailure('Server Error ($statusCode)');
         default:

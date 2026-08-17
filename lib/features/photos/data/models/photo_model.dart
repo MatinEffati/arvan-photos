@@ -24,6 +24,16 @@ class PhotoModel extends PhotoEntity {
     );
   }
 
+  PhotoModel copyWithUrl(String newUrl) {
+    return PhotoModel(
+      key: key,
+      url: newUrl,
+      lastModified: lastModified,
+      size: size,
+      name: name,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'key': key,
