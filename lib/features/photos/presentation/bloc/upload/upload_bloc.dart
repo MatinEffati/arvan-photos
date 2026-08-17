@@ -7,9 +7,11 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 part 'upload_event.dart';
+
 part 'upload_state.dart';
 
 @injectable
@@ -22,11 +24,15 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     on<UploadPausedRequested>(_onUploadPausedRequested);
     on<UploadResumeRequested>(_onUploadResumeRequested);
 
-    _statusSubscription = FlutterBackgroundService().on('update').listen((event) {
+    _statusSubscription = FlutterBackgroundService().on('update').listen((
+      event,
+    ) {
       add(UploadStatusRequested());
     });
-    
-    _completedSubscription = FlutterBackgroundService().on('completed').listen((event) {
+
+    _completedSubscription = FlutterBackgroundService().on('completed').listen((
+      event,
+    ) {
       add(UploadStatusRequested());
     });
   }
@@ -73,11 +79,15 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     UploadStarted event,
     Emitter<UploadState> emit,
   ) async {
-    final newTasks = event.files.map((file) => UploadTask(
-      id: _uuid.v4(),
-      file: file,
-      status: UploadStatus.pending,
-    )).toList();
+    final newTasks = event.files
+        .map(
+          (file) => UploadTask(
+            id: _uuid.v4(),
+            file: file,
+            status: UploadStatus.pending,
+          ),
+        )
+        .toList();
 
     for (final task in newTasks) {
       await _localDataSource.addTask(task);
@@ -90,6 +100,21 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     final isRunning = await service.isRunning();
     if (!isRunning) {
       await NotificationService.ensureChannelCreated();
+
+      // Explicitly check for notification permission on Android 13+
+      if (Platform.isAndroid) {
+        final status = await Permission.notification.status;
+        if (!status.isGranted) {
+          final result = await Permission.notification.request();
+          if (!result.isGranted) {
+            // Log or handle the case where permission is denied
+            print(
+              'UPLOAD_BLOC: Notification permission denied. Foreground service might fail.',
+            );
+          }
+        }
+      }
+
       await service.startService();
     }
   }

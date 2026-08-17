@@ -28,6 +28,14 @@ class NotificationService {
     await androidPlugin?.createNotificationChannel(_androidChannel);
   }
 
+  static Future<bool> requestPermission() async {
+    final androidPlugin = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    return await androidPlugin?.requestNotificationsPermission() ?? false;
+  }
+
   static Future<void> initialize() async {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',

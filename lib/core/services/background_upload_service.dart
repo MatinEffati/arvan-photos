@@ -28,7 +28,7 @@ class BackgroundUploadService {
         notificationChannelId: 'upload_channel',
         initialNotificationTitle: 'Photo Uploads',
         initialNotificationContent: 'Preparing upload queue...',
-        foregroundServiceNotificationId: 1,
+        foregroundServiceNotificationId: 888,
         foregroundServiceTypes: [AndroidForegroundType.dataSync],
       ),
       iosConfiguration: IosConfiguration(
@@ -199,7 +199,7 @@ void onStart(ServiceInstance service) async {
         final overallProgress = (completedCount + progress) / totalCount;
 
         await NotificationService.showUploadProgress(
-          id: 1,
+          id: 888,
           title: 'Uploading Photos ($completedCount/$totalCount)',
           progress: (overallProgress * 100).toInt(),
           total: 100,
@@ -235,7 +235,7 @@ void onStart(ServiceInstance service) async {
 
         // Update notification on failure
         NotificationService.showUploadProgress(
-          id: 1,
+          id: 888,
           title: 'Upload Failed',
           progress: 0,
           total: 1,
@@ -258,7 +258,7 @@ void onStart(ServiceInstance service) async {
             .length;
 
         NotificationService.showUploadProgress(
-          id: 1,
+          id: 888,
           title: 'Uploading Photos ($completedCount/$totalCount)',
           progress: (completedCount / totalCount * 100).toInt(),
           total: 100,
