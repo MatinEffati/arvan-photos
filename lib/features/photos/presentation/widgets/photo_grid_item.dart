@@ -10,6 +10,7 @@ class PhotoGridItem extends StatelessWidget {
     required this.onLongPress,
     this.isSelected = false,
     this.isSelectionMode = false,
+    this.isDeleting = false,
     super.key,
   });
 
@@ -18,6 +19,7 @@ class PhotoGridItem extends StatelessWidget {
   final VoidCallback onLongPress;
   final bool isSelected;
   final bool isSelectionMode;
+  final bool isDeleting;
 
   @override
   Widget build(BuildContext context) {
@@ -32,28 +34,38 @@ class PhotoGridItem extends StatelessWidget {
               padding: EdgeInsets.all(isSelected ? 10 : 0),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: CachedNetworkImage(
-                  imageUrl: photo.url,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => const ColoredBox(
-                    color: AppColors.grey200,
-                    child: Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                child: Opacity(
+                  opacity: isDeleting ? 0.5 : 1.0,
+                  child: CachedNetworkImage(
+                    imageUrl: photo.url,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const ColoredBox(
+                      color: AppColors.grey200,
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       ),
                     ),
-                  ),
-                  errorWidget: (context, url, error) => const ColoredBox(
-                    color: AppColors.grey200,
-                    child: Icon(Icons.error_outline, color: AppColors.grey500),
+                    errorWidget: (context, url, error) => const ColoredBox(
+                      color: AppColors.grey200,
+                      child: Icon(Icons.error_outline, color: AppColors.grey500),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-          if (isSelectionMode)
+          if (isDeleting)
+            const Center(
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            ),
+          if (isSelectionMode && !isDeleting)
             Positioned(
               top: 4,
               left: 4,

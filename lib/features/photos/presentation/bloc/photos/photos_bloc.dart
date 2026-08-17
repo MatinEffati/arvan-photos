@@ -122,13 +122,38 @@ class PhotosBloc extends Bloc<PhotosEvent, PhotosState> {
     final selectedKeys = state.selectedPhotoKeys.toList();
     if (selectedKeys.isEmpty) return;
 
-    emit(PhotosLoadInProgress());
-    final result = await _deleteMultiplePhotosUseCase(selectedKeys);
-    
-    result.fold(
-      (failure) => emit(PhotosLoadFailure(failure.message)),
-      (_) => add(const PhotosRequested()),
-    );
+    if (state is PhotosLoadSuccess) {
+      final currentState = state as PhotosLoadSuccess;
+      emit(currentState.copyWith(
+        deletingPhotoKeys: Set.from(selectedKeys),
+      ));
+
+      final result = await _deleteMultiplePhotosUseCase(selectedKeys);
+
+      result.fold(
+        (failure) => emit(PhotosLoadFailure(failure.message)),
+        (_) {
+          final updatedPhotos = currentState.photos
+              .where((p) => !selectedKeys.contains(p.key))
+              .toList();
+          emit(PhotosLoadSuccess(
+            photos: updatedPhotos,
+            groupedPhotos: _groupPhotos(updatedPhotos),
+            sortOption: currentState.sortOption,
+            nextContinuationToken: currentState.nextContinuationToken,
+            selectedPhotoKeys: const {},
+            deletingPhotoKeys: const {},
+          ));
+        },
+      );
+    } else {
+      emit(PhotosLoadInProgress());
+      final result = await _deleteMultiplePhotosUseCase(selectedKeys);
+      result.fold(
+        (failure) => emit(PhotosLoadFailure(failure.message)),
+        (_) => add(const PhotosRequested()),
+      );
+    }
   }
 
   List<PhotoEntity> _sortPhotos(List<PhotoEntity> photos, SortOption option) {

@@ -55,6 +55,7 @@ class ArvanS3Client {
 
     final document = XmlDocument.parse(response.data.toString());
     final contents = document.findAllElements('Contents').toList();
+    print('S3_CLIENT: Found ${contents.length} objects on server');
     final nextTokenElement = document.findAllElements('NextContinuationToken').firstOrNull;
     
     return S3ListResponse(

@@ -1,8 +1,13 @@
 import 'dart:io';
+
+import 'package:arvan_photos/core/di/injection.dart';
 import 'package:arvan_photos/core/theme/app_spacing.dart';
 import 'package:arvan_photos/core/theme/app_text_styles.dart';
 import 'package:arvan_photos/features/photos/domain/entities/sort_option.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart';
+import 'package:arvan_photos/features/photos/presentation/bloc/sync/sync_bloc.dart';
+import 'package:arvan_photos/features/photos/presentation/bloc/sync/sync_event.dart';
+import 'package:arvan_photos/features/photos/presentation/bloc/sync/sync_state.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/photo_detail_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/photo_grid_item.dart';
@@ -11,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:sqflite/sqflite.dart';
 
 class PhotosScreen extends StatefulWidget {
   const PhotosScreen({super.key});
@@ -27,6 +33,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
   void initState() {
     super.initState();
     context.read<PhotosBloc>().add(const PhotosRequested());
+    context.read<SyncBloc>().add(SyncRequested());
     _scrollController.addListener(_onScroll);
   }
 
@@ -69,6 +76,20 @@ class _PhotosScreenState extends State<PhotosScreen> {
             }
           },
         ),
+        BlocListener<SyncBloc, SyncState>(
+          listener: (context, state) {
+            if (state is SyncCompleted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Sync completed')),
+              );
+              context.read<PhotosBloc>().add(const PhotosRequested(isRefresh: true));
+            } else if (state is SyncFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Sync failed: ${state.message}')),
+              );
+            }
+          },
+        ),
       ],
       child: BlocBuilder<PhotosBloc, PhotosState>(
         builder: (context, photosState) {
@@ -82,9 +103,28 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       onPressed: () => context.read<PhotosBloc>().add(PhotosSelectionCleared()),
                     )
                   : null,
-              title: Text(
-                isSelectionMode ? '${photosState.selectedPhotoKeys.length} selected' : 'Photos',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isSelectionMode ? '${photosState.selectedPhotoKeys.length} selected' : 'Photos',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  BlocBuilder<SyncBloc, SyncState>(
+                    builder: (context, state) {
+                      final serverCount = photosState is PhotosLoadSuccess ? photosState.photos.length : 0;
+                      String syncStatus = 'Idle';
+                      if (state is SyncInProgress) syncStatus = 'Syncing...';
+                      if (state is SyncCompleted) syncStatus = 'Done';
+                      if (state is SyncFailure) syncStatus = 'Error';
+                      
+                      return Text(
+                        'Server: $serverCount | Sync: $syncStatus',
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.normal, color: Colors.grey),
+                      );
+                    },
+                  ),
+                ],
               ),
               actions: [
                 if (isSelectionMode)
@@ -94,7 +134,14 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       _confirmBulkDelete(context);
                     },
                   )
-                else
+                else ...[
+                  IconButton(
+                    icon: const Icon(Icons.sync),
+                    onPressed: () {
+                      context.read<SyncBloc>().add(SyncRequested());
+                    },
+                    tooltip: 'Sync Now',
+                  ),
                   PopupMenuButton<SortOption>(
                     icon: const Icon(Icons.sort),
                     onSelected: (option) {
@@ -117,8 +164,23 @@ class _PhotosScreenState extends State<PhotosScreen> {
                         value: SortOption.sizeDescending,
                         child: Text('Size (Largest)'),
                       ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        child: const Text('Clear Sync Cache', style: TextStyle(color: Colors.red)),
+                        onTap: () async {
+                          final db = getIt<Database>();
+                          await db.delete('sync_registry');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Sync cache cleared')),
+                            );
+                            context.read<SyncBloc>().add(SyncRequested());
+                          }
+                        },
+                      ),
                     ],
                   ),
+                ],
               ],
             ),
             body: Stack(
@@ -130,6 +192,7 @@ class _PhotosScreenState extends State<PhotosScreen> {
                   child: _buildContent(photosState),
                 ),
                 _buildUploadOverlay(),
+                _buildSyncOverlay(),
               ],
             ),
             floatingActionButton: isSelectionMode
@@ -177,12 +240,16 @@ class _PhotosScreenState extends State<PhotosScreen> {
                       (context, index) {
                         final photo = group.photos[index];
                         final isSelected = state.selectedPhotoKeys.contains(photo.key);
+                        final isDeleting = state.deletingPhotoKeys.contains(photo.key);
+                        
                         return PhotoGridItem(
                           key: ValueKey(photo.key),
                           photo: photo,
                           isSelected: isSelected,
                           isSelectionMode: state.isSelectionMode,
+                          isDeleting: isDeleting,
                           onTap: () {
+                            if (isDeleting) return;
                             if (state.isSelectionMode) {
                               context.read<PhotosBloc>().add(PhotoSelectionToggled(photo.key));
                             } else {
@@ -245,40 +312,23 @@ class _PhotosScreenState extends State<PhotosScreen> {
     return BlocBuilder<UploadBloc, UploadState>(
       builder: (context, state) {
         if (state is UploadInProgress) {
-          return Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: Card(
-              elevation: 8,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.m),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        const SizedBox(width: AppSpacing.m),
-                        Expanded(
-                          child: Text(
-                            'Uploading ${state.currentFileIndex + 1} of ${state.totalFiles}...',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        Text('${(state.progress * 100).toInt()}%'),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.s),
-                    LinearProgressIndicator(value: state.progress),
-                  ],
-                ),
-              ),
-            ),
+          return _ProgressOverlay(
+            title: 'Uploading ${state.currentFileIndex + 1} of ${state.totalFiles}...',
+            progress: state.progress,
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildSyncOverlay() {
+    return BlocBuilder<SyncBloc, SyncState>(
+      builder: (context, state) {
+        if (state is SyncInProgress && state.total > 0) {
+          return _ProgressOverlay(
+            title: 'Syncing ${state.current} of ${state.total}...',
+            progress: state.progress,
           );
         }
         return const SizedBox.shrink();
@@ -318,5 +368,54 @@ class _PhotosScreenState extends State<PhotosScreen> {
     if (photoDate == today) return 'Today';
     if (photoDate == yesterday) return 'Yesterday';
     return DateFormat('EEE, MMM d, yyyy').format(date);
+  }
+}
+
+class _ProgressOverlay extends StatelessWidget {
+  const _ProgressOverlay({
+    required this.title,
+    required this.progress,
+  });
+
+  final String title;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 10,
+      left: 10,
+      right: 10,
+      child: Card(
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.m),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: AppSpacing.m),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Text('${(progress * 100).toInt()}%'),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.s),
+              LinearProgressIndicator(value: progress),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -6,12 +6,14 @@ abstract class PhotosState extends Equatable {
     this.nextContinuationToken,
     this.isLoadingMore = false,
     this.selectedPhotoKeys = const {},
+    this.deletingPhotoKeys = const {},
   });
 
   final SortOption sortOption;
   final String? nextContinuationToken;
   final bool isLoadingMore;
   final Set<String> selectedPhotoKeys;
+  final Set<String> deletingPhotoKeys;
 
   bool get hasMore => nextContinuationToken != null;
   bool get isSelectionMode => selectedPhotoKeys.isNotEmpty;
@@ -21,10 +23,17 @@ abstract class PhotosState extends Equatable {
     String? nextContinuationToken,
     bool? isLoadingMore,
     Set<String>? selectedPhotoKeys,
+    Set<String>? deletingPhotoKeys,
   });
 
   @override
-  List<Object?> get props => [sortOption, nextContinuationToken, isLoadingMore, selectedPhotoKeys];
+  List<Object?> get props => [
+        sortOption,
+        nextContinuationToken,
+        isLoadingMore,
+        selectedPhotoKeys,
+        deletingPhotoKeys,
+      ];
 }
 
 class PhotosInitial extends PhotosState {
@@ -34,6 +43,7 @@ class PhotosInitial extends PhotosState {
     String? nextContinuationToken,
     bool? isLoadingMore,
     Set<String>? selectedPhotoKeys,
+    Set<String>? deletingPhotoKeys,
   }) {
     return PhotosInitial();
   }
@@ -46,6 +56,7 @@ class PhotosLoadInProgress extends PhotosState {
     String? nextContinuationToken,
     bool? isLoadingMore,
     Set<String>? selectedPhotoKeys,
+    Set<String>? deletingPhotoKeys,
   }) {
     return PhotosLoadInProgress();
   }
@@ -59,6 +70,7 @@ class PhotosLoadSuccess extends PhotosState {
     super.nextContinuationToken,
     super.isLoadingMore = false,
     super.selectedPhotoKeys = const {},
+    super.deletingPhotoKeys = const {},
   });
 
   final List<PhotoEntity> photos;
@@ -72,6 +84,7 @@ class PhotosLoadSuccess extends PhotosState {
     String? nextContinuationToken,
     bool? isLoadingMore,
     Set<String>? selectedPhotoKeys,
+    Set<String>? deletingPhotoKeys,
     bool clearToken = false,
   }) {
     return PhotosLoadSuccess(
@@ -81,11 +94,20 @@ class PhotosLoadSuccess extends PhotosState {
       nextContinuationToken: clearToken ? null : (nextContinuationToken ?? this.nextContinuationToken),
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       selectedPhotoKeys: selectedPhotoKeys ?? this.selectedPhotoKeys,
+      deletingPhotoKeys: deletingPhotoKeys ?? this.deletingPhotoKeys,
     );
   }
 
   @override
-  List<Object?> get props => [photos, groupedPhotos, sortOption, nextContinuationToken, isLoadingMore, selectedPhotoKeys];
+  List<Object?> get props => [
+        photos,
+        groupedPhotos,
+        sortOption,
+        nextContinuationToken,
+        isLoadingMore,
+        selectedPhotoKeys,
+        deletingPhotoKeys,
+      ];
 }
 
 class PhotosLoadFailure extends PhotosState {
@@ -98,10 +120,18 @@ class PhotosLoadFailure extends PhotosState {
     String? nextContinuationToken,
     bool? isLoadingMore,
     Set<String>? selectedPhotoKeys,
+    Set<String>? deletingPhotoKeys,
   }) {
     return PhotosLoadFailure(message);
   }
 
   @override
-  List<Object?> get props => [message, sortOption, nextContinuationToken, isLoadingMore, selectedPhotoKeys];
+  List<Object?> get props => [
+        message,
+        sortOption,
+        nextContinuationToken,
+        isLoadingMore,
+        selectedPhotoKeys,
+        deletingPhotoKeys,
+      ];
 }
