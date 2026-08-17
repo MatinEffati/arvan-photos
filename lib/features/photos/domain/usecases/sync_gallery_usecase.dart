@@ -28,10 +28,11 @@ class SyncGalleryUseCase {
       
       if (assets.isEmpty) return const Right(unit);
 
-      final syncedIds = await _syncLocalDataSource.getAllSyncedIds();
-      debugPrint('SYNC_LOG: Already synced IDs in DB: ${syncedIds.length}');
+      // گرفتن لیست تمام عکس‌هایی که قبلاً سینک شده‌اند یا عمداً توسط کاربر پاک شده‌اند
+      final registeredIds = await _syncLocalDataSource.getRegisteredIds();
+      debugPrint('SYNC_LOG: Registered IDs in DB (synced or deleted): ${registeredIds.length}');
       
-      final toSync = assets.where((a) => !syncedIds.contains(a.id)).toList();
+      final toSync = assets.where((a) => !registeredIds.contains(a.id)).toList();
       debugPrint('SYNC_LOG: Assets to sync: ${toSync.length}');
 
       if (toSync.isEmpty) return const Right(unit);

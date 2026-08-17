@@ -52,8 +52,8 @@ void main() {
     when(() => mockDeviceDataSource.getLocalAssets())
         .thenAnswer((_) async => [asset1, asset2]);
     
-    when(() => mockSyncLocalDataSource.getAllSyncedIds())
-        .thenAnswer((_) async => ['id1']); // asset1 is already synced
+    when(() => mockSyncLocalDataSource.getRegisteredIds())
+        .thenAnswer((_) async => ['id1']); // asset1 is already registered (synced or deleted)
     
     when(() => mockCommandRepository.uploadPhoto(any()))
         .thenAnswer((_) async => const Right<Failure, Unit>(unit));

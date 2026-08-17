@@ -6,7 +6,8 @@ abstract class SyncLocalDataSource {
   Future<void> markSynced(String assetId, String remoteKey);
   Future<void> markPending(String assetId);
   Future<void> markFailed(String assetId);
-  Future<List<String>> getAllSyncedIds();
+  Future<void> markAsDeleted(String remoteKey);
+  Future<List<String>> getRegisteredIds();
 }
 
 @LazySingleton(as: SyncLocalDataSource)
@@ -66,12 +67,20 @@ class SyncLocalDataSourceImpl implements SyncLocalDataSource {
   }
 
   @override
-  Future<List<String>> getAllSyncedIds() async {
+  Future<void> markAsDeleted(String remoteKey) async {
+    await _db.update(
+      'sync_registry',
+      {'status': 'deleted'},
+      where: 'remote_key = ?',
+      whereArgs: [remoteKey],
+    );
+  }
+
+  @override
+  Future<List<String>> getRegisteredIds() async {
     final results = await _db.query(
       'sync_registry',
       columns: ['local_asset_id'],
-      where: 'status = ?',
-      whereArgs: ['synced'],
     );
     return results.map((e) => e['local_asset_id']! as String).toList();
   }

@@ -90,6 +90,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i207.PhotoRepositoryImpl(
         gh<_i540.PhotosRemoteDataSource>(),
         gh<_i871.PhotoKeyGenerator>(),
+        gh<_i635.SyncLocalDataSource>(),
       ),
     );
     gh.lazySingleton<_i591.PhotoQueryRepository>(

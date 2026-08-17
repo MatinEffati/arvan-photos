@@ -4,6 +4,7 @@ import 'package:arvan_photos/core/error/error_mapper.dart';
 import 'package:arvan_photos/core/error/failures.dart';
 import 'package:arvan_photos/features/photos/data/datasources/photo_key_generator.dart';
 import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data_source.dart';
+import 'package:arvan_photos/features/photos/data/datasources/sync_local_datasource.dart';
 import 'package:arvan_photos/features/photos/domain/entities/paginated_photos.dart';
 import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
 import 'package:arvan_photos/features/photos/domain/repositories/photo_query_repository.dart';
@@ -13,10 +14,11 @@ import 'package:injectable/injectable.dart';
 @lazySingleton
 class PhotoRepositoryImpl
     implements PhotoQueryRepository, PhotoCommandRepository {
-  PhotoRepositoryImpl(this.remoteDataSource, this.keyGenerator);
+  PhotoRepositoryImpl(this.remoteDataSource, this.keyGenerator, this.syncLocalDataSource);
 
   final PhotosRemoteDataSource remoteDataSource;
   final PhotoKeyGenerator keyGenerator;
+  final SyncLocalDataSource syncLocalDataSource;
 
   @override
   Future<Either<Failure, PaginatedPhotos>> getPhotos({
@@ -67,6 +69,7 @@ class PhotoRepositoryImpl
   Future<Either<Failure, Unit>> deletePhoto(String key) async {
     try {
       await remoteDataSource.deletePhoto(key);
+      await syncLocalDataSource.markAsDeleted(key);
       return const Right(unit);
     } catch (e) {
       return Left(ErrorMapper.map(e));
@@ -78,6 +81,7 @@ class PhotoRepositoryImpl
     try {
       for (final key in keys) {
         await remoteDataSource.deletePhoto(key);
+        await syncLocalDataSource.markAsDeleted(key);
       }
       return const Right(unit);
     } catch (e) {
