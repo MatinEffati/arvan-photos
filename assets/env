@@ -1,5 +1,0 @@
-ARVAN_ACCESS_KEY=0cefea45-7125-4376-96ea-be9015e93016
-ARVAN_SECRET_KEY=fea8e09c20e431f2fa121e7c2713ad37d2f7cca2ce09591abc18020f0bbfaa45
-ARVAN_BUCKET=arvan-task
-ARVAN_ENDPOINT=https://arvan-task.s3.ir-thr-at1.arvanstorage.ir
-ARVAN_REGION=ir-thr-at1
