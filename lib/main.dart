@@ -1,8 +1,7 @@
 import 'package:arvan_photos/core/di/injection.dart';
-import 'package:arvan_photos/core/services/background_upload_service.dart';
+import 'package:arvan_photos/core/services/app_background_service.dart';
 import 'package:arvan_photos/core/services/notification_service.dart';
 import 'package:arvan_photos/core/theme/app_theme.dart';
-import 'package:arvan_photos/features/photos/data/datasources/backup_background_service.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart';
@@ -22,9 +21,8 @@ void main() async {
   await NotificationService.initialize();
   await NotificationService.ensureChannelCreated();
 
-  // Initialize background services
-  await BackgroundUploadService.initialize();
-  await BackupBackgroundService.initialize();
+  // Initialize unified background service
+  await AppBackgroundService.initialize();
 
   // Initialize dependency injection
   await configureDependencies();

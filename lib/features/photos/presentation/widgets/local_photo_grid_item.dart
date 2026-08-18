@@ -37,8 +37,10 @@ class LocalPhotoGridItem extends StatelessWidget {
               padding: EdgeInsets.all(isSelected ? 8 : 0),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image(
-                  image: AssetEntityImageProvider(asset, isOriginal: false, thumbnailSize: const ThumbnailSize.square(200)),
+                child: AssetEntityImage(
+                  asset,
+                  isOriginal: false,
+                  thumbnailSize: const ThumbnailSize.square(200),
                   fit: BoxFit.cover,
                 ),
               ),

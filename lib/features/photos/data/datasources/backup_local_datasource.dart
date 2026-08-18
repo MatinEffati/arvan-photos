@@ -7,6 +7,7 @@ abstract class BackupLocalDataSource {
   Future<List<Map<String, dynamic>>> getAll();
   Future<List<Map<String, dynamic>>> getPending(int limit);
   Future<Map<String, dynamic>?> getById(String assetId);
+  Future<List<String>> getSyncedIds();
 }
 
 @LazySingleton(as: BackupLocalDataSource)
@@ -102,5 +103,16 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
       whereArgs: [assetId],
     );
     return results.isNotEmpty ? results.first : null;
+  }
+
+  @override
+  Future<List<String>> getSyncedIds() async {
+    final results = await _db.query(
+      _tableName,
+      columns: ['local_asset_id'],
+      where: 'status = ?',
+      whereArgs: ['synced'],
+    );
+    return results.map((e) => e['local_asset_id'] as String).toList();
   }
 }

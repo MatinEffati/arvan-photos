@@ -17,4 +17,5 @@ abstract class PhotoCommandRepository {
   Future<Either<Failure, Unit>> enqueueBackup(List<String> assetIds);
   Stream<Map<String, dynamic>> watchBackupStatus();
   Future<List<Map<String, dynamic>>> getAllBackupStatuses();
+  Future<List<String>> getSyncedIds();
 }

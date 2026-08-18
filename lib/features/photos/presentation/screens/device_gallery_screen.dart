@@ -1,8 +1,10 @@
+import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_event.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_state.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
-import 'package:arvan_photos/features/photos/presentation/widgets/backup_action_bar.dart';
+import 'package:arvan_photos/features/photos/presentation/screens/backup_settings_screen.dart';
+import 'package:arvan_photos/features/photos/presentation/widgets/backup_banner.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/date_section_header.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/local_photo_grid_item.dart';
 import 'package:flutter/material.dart';
@@ -16,11 +18,29 @@ class DeviceGalleryScreen extends StatefulWidget {
 }
 
 class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
+  final ScrollController _scrollController = ScrollController();
+  bool _isScrolled = false;
+
   @override
   void initState() {
     super.initState();
-    context.read<DeviceGalleryBloc>().add(DeviceGalleryRequested());
+    context.read<DeviceGalleryBloc>().add(const DeviceGalleryRequested());
     context.read<BackupStatusBloc>().add(BackupStatusStarted());
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.offset > 50 && !_isScrolled) {
+      setState(() => _isScrolled = true);
+    } else if (_scrollController.offset <= 50 && _isScrolled) {
+      setState(() => _isScrolled = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -38,43 +58,93 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
         }
       },
       builder: (context, state) {
+        final isSelectionMode =
+            state is DeviceGalleryLoadSuccess && state.selectedAssetIds.isNotEmpty;
+
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Gallery'),
-            actions: [
-              if (state is DeviceGalleryLoadSuccess)
-                TextButton(
-                  onPressed: () {
-                    context.read<DeviceGalleryBloc>().add(DeviceGallerySelectAllToggled());
-                  },
-                  child: Text(
-                    state.selectedAssetIds.isEmpty ? 'Select All' : 'Deselect All',
-                  ),
-                ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              _buildContent(state),
-              if (state is DeviceGalleryLoadSuccess && state.selectedAssetIds.isNotEmpty)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: BackupActionBar(
-                    selectedCount: state.selectedAssetIds.length,
-                    onBackupPressed: () {
-                      context.read<DeviceGalleryBloc>().add(DeviceGalleryBackupRequested());
-                    },
-                    onClearSelection: () {
-                      context.read<DeviceGalleryBloc>().add(DeviceGallerySelectAllToggled());
-                    },
-                  ),
-                ),
-            ],
-          ),
+          appBar: _buildAppBar(context, state, isSelectionMode),
+          body: _buildContent(state),
         );
       },
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(
+      BuildContext context, DeviceGalleryState state, bool isSelectionMode) {
+    if (isSelectionMode && state is DeviceGalleryLoadSuccess) {
+      return AppBar(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () =>
+              context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectAllToggled()),
+        ),
+        title: Text('${state.selectedAssetIds.length} selected'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              context.read<DeviceGalleryBloc>().add(const DeviceGalleryBackupRequested());
+            },
+            child: const Text('Back Up', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      );
+    }
+
+    String statusText = 'Gallery';
+    if (state is DeviceGalleryLoadSuccess) {
+      if (state.isAutoBackupEnabled) {
+        statusText = state.notBackedUpCount > 0 ? 'Backing up...' : 'Backed up';
+      } else {
+        statusText = 'Backup is off';
+      }
+    }
+
+    return AppBar(
+      title: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BackupSettingsScreen()),
+          );
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.photo_library, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Photos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  statusText,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.normal),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BackupSettingsScreen()),
+            );
+          },
+        ),
+        const Padding(
+          padding: EdgeInsets.only(right: 16.0),
+          child: CircleAvatar(
+            radius: 14,
+            backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=arvan'),
+          ),
+        ),
+      ],
     );
   }
 
@@ -88,59 +158,74 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
 
       return RefreshIndicator(
         onRefresh: () async {
-          context.read<DeviceGalleryBloc>().add(DeviceGalleryRequested());
+          context.read<DeviceGalleryBloc>().add(const DeviceGalleryRequested());
         },
         child: BlocBuilder<BackupStatusBloc, BackupStatusState>(
           builder: (context, statusState) {
             return CustomScrollView(
-              slivers: state.groups.expand((group) {
-                final groupIds = group.assets.map((a) => a.id).toSet();
-                final isGroupSelected = groupIds.every((id) => state.selectedAssetIds.contains(id));
+              controller: _scrollController,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: BackupBanner(state: state),
+                ),
+                ...state.groups.expand((group) {
+                  final groupIds = group.assets.map((a) => a.id).toSet();
+                  final isGroupSelected =
+                      groupIds.every((id) => state.selectedAssetIds.contains(id));
 
-                return [
-                  SliverToBoxAdapter(
-                    child: DateSectionHeader(
-                      title: group.title,
-                      isSelected: isGroupSelected,
-                      onToggleSelection: () {
-                        context.read<DeviceGalleryBloc>().add(DeviceGalleryGroupSelectionToggled(group.title));
-                      },
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    sliver: SliverGrid(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 4,
-                        mainAxisSpacing: 4,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final asset = group.assets[index];
-                          return LocalPhotoGridItem(
-                            asset: asset,
-                            isSelected: state.selectedAssetIds.contains(asset.id),
-                            isSelectionMode: state.selectedAssetIds.isNotEmpty,
-                            backupStatus: statusState.statuses[asset.id],
-                            onTap: () {
-                              if (state.selectedAssetIds.isNotEmpty) {
-                                context.read<DeviceGalleryBloc>().add(DeviceGallerySelectionToggled(asset.id));
-                              } else {
-                                // Full screen view not requested but could be added here
-                              }
-                            },
-                            onLongPress: () {
-                              context.read<DeviceGalleryBloc>().add(DeviceGallerySelectionToggled(asset.id));
-                            },
-                          );
+                  return [
+                    SliverToBoxAdapter(
+                      child: DateSectionHeader(
+                        title: group.title,
+                        isSelected: isGroupSelected,
+                        isSelectionMode: state.selectedAssetIds.isNotEmpty,
+                        onToggleSelection: () {
+                          context
+                              .read<DeviceGalleryBloc>()
+                              .add(DeviceGalleryGroupSelectionToggled(group.title));
                         },
-                        childCount: group.assets.length,
                       ),
                     ),
-                  ),
-                ];
-              }).toList(),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      sliver: SliverGrid(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 2,
+                          mainAxisSpacing: 2,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final asset = group.assets[index];
+                            return LocalPhotoGridItem(
+                              asset: asset,
+                              isSelected: state.selectedAssetIds.contains(asset.id),
+                              isSelectionMode: state.selectedAssetIds.isNotEmpty,
+                              backupStatus: statusState.statuses[asset.id],
+                              onTap: () {
+                                if (state.selectedAssetIds.isNotEmpty) {
+                                  context
+                                      .read<DeviceGalleryBloc>()
+                                      .add(DeviceGallerySelectionToggled(asset.id));
+                                } else {
+                                  // Detail view not requested
+                                }
+                              },
+                              onLongPress: () {
+                                context
+                                    .read<DeviceGalleryBloc>()
+                                    .add(DeviceGallerySelectionToggled(asset.id));
+                              },
+                            );
+                          },
+                          childCount: group.assets.length,
+                        ),
+                      ),
+                    ),
+                  ];
+                }).toList(),
+                const SliverToBoxAdapter(child: SizedBox(height: 80)),
+              ],
             );
           },
         ),

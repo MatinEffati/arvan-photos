@@ -1,24 +1,45 @@
 import 'package:arvan_photos/features/photos/data/datasources/device_gallery_datasource.dart';
+import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart';
+import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
 import 'package:arvan_photos/features/photos/domain/usecases/enqueue_backup_usecase.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockDeviceGalleryDataSource extends Mock implements DeviceGalleryDataSource {}
 class MockEnqueueBackupUseCase extends Mock implements EnqueueBackupUseCase {}
+class MockBackupLocalDataSource extends Mock implements BackupLocalDataSource {}
+class MockPhotoCommandRepository extends Mock implements PhotoCommandRepository {}
+class MockSharedPreferences extends Mock implements SharedPreferences {}
 class MockAssetEntity extends Mock implements AssetEntity {}
 
 void main() {
   late DeviceGalleryBloc bloc;
   late MockDeviceGalleryDataSource mockDataSource;
   late MockEnqueueBackupUseCase mockEnqueueUseCase;
+  late MockBackupLocalDataSource mockBackupLocalDataSource;
+  late MockPhotoCommandRepository mockRepository;
+  late MockSharedPreferences mockPrefs;
 
   setUp(() {
     mockDataSource = MockDeviceGalleryDataSource();
     mockEnqueueUseCase = MockEnqueueBackupUseCase();
-    bloc = DeviceGalleryBloc(mockDataSource, mockEnqueueUseCase);
+    mockBackupLocalDataSource = MockBackupLocalDataSource();
+    mockRepository = MockPhotoCommandRepository();
+    mockPrefs = MockSharedPreferences();
+
+    when(() => mockRepository.watchBackupStatus()).thenAnswer((_) => const Stream.empty());
+
+    bloc = DeviceGalleryBloc(
+      mockDataSource,
+      mockEnqueueUseCase,
+      mockBackupLocalDataSource,
+      mockRepository,
+      mockPrefs,
+    );
   });
 
   tearDown(() {
@@ -47,9 +68,11 @@ void main() {
       build: () {
         when(() => mockDataSource.getLocalAssets())
             .thenAnswer((_) async => [todayAsset, yesterdayAsset, olderAsset]);
+        when(() => mockPrefs.getBool(any())).thenReturn(false);
+        when(() => mockBackupLocalDataSource.getSyncedIds()).thenAnswer((_) async => []);
         return bloc;
       },
-      act: (bloc) => bloc.add(DeviceGalleryRequested()),
+      act: (bloc) => bloc.add(const DeviceGalleryRequested()),
       expect: () => [
         DeviceGalleryLoadInProgress(),
         isA<DeviceGalleryLoadSuccess>().having(
@@ -75,9 +98,9 @@ void main() {
             .thenAnswer((_) async => [todayAsset]);
         return bloc;
       },
-      seed: () => DeviceGalleryLoadSuccess(
-        groups: const [],
-        selectedAssetIds: const {'id1'},
+      seed: () => const DeviceGalleryLoadSuccess(
+        groups: [],
+        selectedAssetIds: {'id1'},
       ),
       act: (bloc) => bloc.add(const DeviceGallerySelectionToggled('id1')),
       expect: () => [

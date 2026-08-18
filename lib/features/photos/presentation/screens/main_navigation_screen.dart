@@ -1,4 +1,5 @@
 import 'package:arvan_photos/core/presentation/widgets/empty_state_screen.dart';
+import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/device_gallery_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/photos_screen.dart';
 import 'package:flutter/material.dart';
@@ -29,27 +30,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         index: _selectedIndex,
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(
+        indicatorColor: AppColors.primary.withValues(alpha: 0.2),
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.photo_library_outlined),
-            activeIcon: Icon(Icons.photo_library),
-            label: 'Gallery',
+            selectedIcon: Icon(Icons.photo_library, color: AppColors.primary),
+            label: 'Photos',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.search),
+            selectedIcon: Icon(Icons.search, color: AppColors.primary),
             label: 'Search',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.cloud_outlined),
-            activeIcon: Icon(Icons.cloud),
-            label: 'Synced',
+          NavigationDestination(
+            icon: Icon(Icons.library_books_outlined),
+            selectedIcon: Icon(Icons.library_books, color: AppColors.primary),
+            label: 'Library',
           ),
         ],
       ),

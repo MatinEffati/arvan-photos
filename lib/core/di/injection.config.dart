@@ -57,6 +57,7 @@ import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_blo
 import 'package:dio/dio.dart' as _i361;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
+import 'package:shared_preferences/shared_preferences.dart' as _i460;
 import 'package:sqflite/sqflite.dart' as _i779;
 
 extension GetItInjectableX on _i174.GetIt {
@@ -71,6 +72,10 @@ extension GetItInjectableX on _i174.GetIt {
     final repositoryModule = _$RepositoryModule();
     await gh.factoryAsync<_i779.Database>(
       () => databaseModule.database,
+      preResolve: true,
+    );
+    await gh.factoryAsync<_i460.SharedPreferences>(
+      () => coreModule.prefs,
       preResolve: true,
     );
     gh.lazySingleton<_i835.AppConfig>(() => _i835.AppConfig());
@@ -100,7 +105,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i207.PhotoRepositoryImpl(
         gh<_i540.PhotosRemoteDataSource>(),
         gh<_i871.PhotoKeyGenerator>(),
-        gh<InvalidType>(),
         gh<_i485.BackupLocalDataSource>(),
       ),
     );
@@ -136,6 +140,9 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i725.DeviceGalleryBloc(
         gh<_i916.DeviceGalleryDataSource>(),
         gh<_i930.EnqueueBackupUseCase>(),
+        gh<_i485.BackupLocalDataSource>(),
+        gh<_i666.PhotoCommandRepository>(),
+        gh<_i460.SharedPreferences>(),
       ),
     );
     gh.factory<_i303.PhotosBloc>(

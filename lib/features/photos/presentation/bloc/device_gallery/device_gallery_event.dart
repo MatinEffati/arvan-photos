@@ -34,3 +34,15 @@ class DeviceGallerySelectAllToggled extends DeviceGalleryEvent {
 class DeviceGalleryBackupRequested extends DeviceGalleryEvent {
   const DeviceGalleryBackupRequested();
 }
+
+class DeviceGalleryAutoBackupToggled extends DeviceGalleryEvent {
+  const DeviceGalleryAutoBackupToggled(this.isEnabled);
+  final bool isEnabled;
+
+  @override
+  List<Object?> get props => [isEnabled];
+}
+
+class DeviceGallerySettingsRequested extends DeviceGalleryEvent {
+  const DeviceGallerySettingsRequested();
+}

@@ -1,17 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 @module
 abstract class CoreModule {
+  @preResolve
+  Future<SharedPreferences> get prefs => SharedPreferences.getInstance();
+
   @lazySingleton
-  Dio get dio {
-    final dio = Dio();
-    dio.interceptors.add(
-      LogInterceptor(
-        requestBody: true,
-        responseBody: true,
-      ),
-    );
-    return dio;
-  }
+  Dio get dio => Dio();
 }
