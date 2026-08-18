@@ -36,7 +36,6 @@ class _PhotosScreenState extends State<PhotosScreen> {
     super.initState();
     _requestPermissions();
     context.read<PhotosBloc>().add(const PhotosRequested());
-    context.read<SyncBloc>().add(SyncRequested());
     context.read<UploadBloc>().add(UploadStatusRequested());
     _scrollController.addListener(_onScroll);
   }

@@ -13,4 +13,8 @@ abstract class PhotoCommandRepository {
   Future<Either<Failure, Unit>> deletePhoto(String key);
   Future<Either<Failure, Unit>> deleteMultiplePhotos(List<String> keys);
   Future<Either<Failure, Unit>> editPhoto(String key, File editedFile);
+
+  Future<Either<Failure, Unit>> enqueueBackup(List<String> assetIds);
+  Stream<Map<String, dynamic>> watchBackupStatus();
+  Future<List<Map<String, dynamic>>> getAllBackupStatuses();
 }

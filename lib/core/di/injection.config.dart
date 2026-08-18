@@ -14,6 +14,8 @@ import 'package:arvan_photos/core/database/database_module.dart' as _i62;
 import 'package:arvan_photos/core/di/core_module.dart' as _i234;
 import 'package:arvan_photos/core/di/repository_module.dart' as _i774;
 import 'package:arvan_photos/core/network/arvan_s3_client.dart' as _i209;
+import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart'
+    as _i485;
 import 'package:arvan_photos/features/photos/data/datasources/device_gallery_datasource.dart'
     as _i916;
 import 'package:arvan_photos/features/photos/data/datasources/photo_key_generator.dart'
@@ -38,14 +40,20 @@ import 'package:arvan_photos/features/photos/domain/usecases/delete_photo_usecas
     as _i684;
 import 'package:arvan_photos/features/photos/domain/usecases/edit_photo_usecase.dart'
     as _i410;
+import 'package:arvan_photos/features/photos/domain/usecases/enqueue_backup_usecase.dart'
+    as _i930;
 import 'package:arvan_photos/features/photos/domain/usecases/get_photos_usecase.dart'
     as _i1014;
 import 'package:arvan_photos/features/photos/domain/usecases/sync_gallery_usecase.dart'
     as _i340;
 import 'package:arvan_photos/features/photos/domain/usecases/upload_photo_usecase.dart'
     as _i209;
+import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart'
+    as _i51;
 import 'package:arvan_photos/features/photos/presentation/bloc/detail/photo_detail_cubit.dart'
     as _i225;
+import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart'
+    as _i725;
 import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart'
     as _i303;
 import 'package:arvan_photos/features/photos/presentation/bloc/sync/sync_bloc.dart'
@@ -76,6 +84,9 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i209.ArvanS3Client>(
       () => _i209.ArvanS3Client(gh<_i361.Dio>(), gh<_i835.AppConfig>()),
     );
+    gh.lazySingleton<_i485.BackupLocalDataSource>(
+      () => _i485.BackupLocalDataSourceImpl(gh<_i779.Database>()),
+    );
     gh.lazySingleton<_i916.DeviceGalleryDataSource>(
       () => _i916.DeviceGalleryDataSourceImpl(),
     );
@@ -94,11 +105,19 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i540.PhotosRemoteDataSource>(
       () => _i1058.PhotosRemoteDataSourceImpl(gh<_i209.ArvanS3Client>()),
     );
+    gh.factory<_i340.SyncGalleryUseCase>(
+      () => _i340.SyncGalleryUseCase(
+        gh<_i916.DeviceGalleryDataSource>(),
+        gh<_i635.SyncLocalDataSource>(),
+        gh<_i638.UploadLocalDataSource>(),
+      ),
+    );
     gh.lazySingleton<_i207.PhotoRepositoryImpl>(
       () => _i207.PhotoRepositoryImpl(
         gh<_i540.PhotosRemoteDataSource>(),
         gh<_i871.PhotoKeyGenerator>(),
         gh<_i635.SyncLocalDataSource>(),
+        gh<_i485.BackupLocalDataSource>(),
       ),
     );
     gh.lazySingleton<_i591.PhotoQueryRepository>(
@@ -107,8 +126,18 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i666.PhotoCommandRepository>(
       () => repositoryModule.commandRepository(gh<_i207.PhotoRepositoryImpl>()),
     );
+    gh.factory<_i628.SyncBloc>(
+      () =>
+          _i628.SyncBloc(gh<_i340.SyncGalleryUseCase>(), gh<_i73.UploadBloc>()),
+    );
     gh.factory<_i1014.GetPhotosUseCase>(
       () => _i1014.GetPhotosUseCase(gh<_i591.PhotoQueryRepository>()),
+    );
+    gh.factory<_i930.EnqueueBackupUseCase>(
+      () => _i930.EnqueueBackupUseCase(gh<_i666.PhotoCommandRepository>()),
+    );
+    gh.factory<_i51.BackupStatusBloc>(
+      () => _i51.BackupStatusBloc(gh<_i666.PhotoCommandRepository>()),
     );
     gh.factory<_i470.DeleteMultiplePhotosUseCase>(
       () =>
@@ -123,11 +152,10 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i209.UploadPhotoUseCase>(
       () => _i209.UploadPhotoUseCase(gh<_i666.PhotoCommandRepository>()),
     );
-    gh.factory<_i340.SyncGalleryUseCase>(
-      () => _i340.SyncGalleryUseCase(
+    gh.factory<_i725.DeviceGalleryBloc>(
+      () => _i725.DeviceGalleryBloc(
         gh<_i916.DeviceGalleryDataSource>(),
-        gh<_i635.SyncLocalDataSource>(),
-        gh<_i638.UploadLocalDataSource>(),
+        gh<_i930.EnqueueBackupUseCase>(),
       ),
     );
     gh.factory<_i303.PhotosBloc>(
@@ -140,12 +168,6 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i225.PhotoDetailCubit(
         gh<_i684.DeletePhotoUseCase>(),
         gh<_i410.EditPhotoUseCase>(),
-      ),
-    );
-    gh.factory<_i628.SyncBloc>(
-      () => _i628.SyncBloc(
-        gh<_i340.SyncGalleryUseCase>(),
-        gh<_i73.UploadBloc>(),
       ),
     );
     return this;

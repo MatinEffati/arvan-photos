@@ -2,6 +2,9 @@ import 'package:arvan_photos/core/di/injection.dart';
 import 'package:arvan_photos/core/services/background_upload_service.dart';
 import 'package:arvan_photos/core/services/notification_service.dart';
 import 'package:arvan_photos/core/theme/app_theme.dart';
+import 'package:arvan_photos/features/photos/data/datasources/backup_background_service.dart';
+import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart';
+import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/sync/sync_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_bloc.dart';
@@ -20,8 +23,9 @@ void main() async {
   await NotificationService.initialize();
   await NotificationService.ensureChannelCreated();
 
-  // Initialize background service
+  // Initialize background services
   await BackgroundUploadService.initialize();
+  await BackupBackgroundService.initialize();
 
   // Initialize dependency injection
   await configureDependencies();
@@ -44,6 +48,12 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) => getIt<SyncBloc>(),
+        ),
+        BlocProvider(
+          create: (context) => getIt<DeviceGalleryBloc>(),
+        ),
+        BlocProvider(
+          create: (context) => getIt<BackupStatusBloc>(),
         ),
       ],
       child: MaterialApp(

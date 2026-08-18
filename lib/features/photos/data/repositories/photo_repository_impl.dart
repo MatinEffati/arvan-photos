@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:arvan_photos/core/error/error_mapper.dart';
 import 'package:arvan_photos/core/error/failures.dart';
+import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart';
+import 'package:arvan_photos/features/photos/data/datasources/backup_background_service.dart';
 import 'package:arvan_photos/features/photos/data/datasources/photo_key_generator.dart';
 import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data_source.dart';
 import 'package:arvan_photos/features/photos/data/datasources/sync_local_datasource.dart';
@@ -10,16 +12,23 @@ import 'package:arvan_photos/features/photos/domain/repositories/photo_command_r
 import 'package:arvan_photos/features/photos/domain/repositories/photo_query_repository.dart';
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:injectable/injectable.dart';
 
 @lazySingleton
 class PhotoRepositoryImpl
     implements PhotoQueryRepository, PhotoCommandRepository {
-  PhotoRepositoryImpl(this.remoteDataSource, this.keyGenerator, this.syncLocalDataSource);
+  PhotoRepositoryImpl(
+    this.remoteDataSource,
+    this.keyGenerator,
+    this.syncLocalDataSource,
+    this.backupLocalDataSource,
+  );
 
   final PhotosRemoteDataSource remoteDataSource;
   final PhotoKeyGenerator keyGenerator;
   final SyncLocalDataSource syncLocalDataSource;
+  final BackupLocalDataSource backupLocalDataSource;
 
   @override
   Future<Either<Failure, PaginatedPhotos>> getPhotos({
@@ -100,5 +109,27 @@ class PhotoRepositoryImpl
     } catch (e) {
       return Left(ErrorMapper.map(e));
     }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> enqueueBackup(List<String> assetIds) async {
+    try {
+      await backupLocalDataSource.enqueue(assetIds);
+      BackupBackgroundService.start();
+      FlutterBackgroundService().invoke('enqueue');
+      return const Right(unit);
+    } catch (e) {
+      return Left(ErrorMapper.map(e));
+    }
+  }
+
+  @override
+  Stream<Map<String, dynamic>> watchBackupStatus() {
+    return FlutterBackgroundService().on('status_update').map((event) => event!);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getAllBackupStatuses() async {
+    return backupLocalDataSource.getAll();
   }
 }

@@ -11,7 +11,7 @@ abstract class DatabaseModule {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE sync_registry (
@@ -22,6 +22,7 @@ abstract class DatabaseModule {
           )
         ''');
         await _createUploadTasksTable(db);
+        await _createBackupQueueTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -29,6 +30,9 @@ abstract class DatabaseModule {
         }
         if (oldVersion < 3) {
           await db.execute('ALTER TABLE upload_tasks ADD COLUMN local_asset_id TEXT');
+        }
+        if (oldVersion < 4) {
+          await _createBackupQueueTable(db);
         }
       },
     );
@@ -43,6 +47,19 @@ abstract class DatabaseModule {
         status TEXT NOT NULL,
         error_message TEXT,
         local_asset_id TEXT
+      )
+    ''');
+  }
+
+  Future<void> _createBackupQueueTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE backup_queue (
+        local_asset_id TEXT PRIMARY KEY,
+        remote_key TEXT,
+        status TEXT NOT NULL,
+        progress REAL DEFAULT 0,
+        queued_at TEXT,
+        synced_at TEXT
       )
     ''');
   }

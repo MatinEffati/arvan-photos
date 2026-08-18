@@ -115,10 +115,12 @@ void onStart(ServiceInstance service) async {
   final remoteDataSource = PhotosRemoteDataSourceImpl(s3Client);
   final keyGenerator = S3PhotoKeyGenerator();
   final syncLocalDataSource = SyncLocalDataSourceImpl(db);
+  final backupLocalDataSource = BackupLocalDataSourceImpl(db);
   final repository = PhotoRepositoryImpl(
     remoteDataSource,
     keyGenerator,
     syncLocalDataSource,
+    backupLocalDataSource,
   );
 
   Timer.periodic(const Duration(seconds: 1), (timer) async {
