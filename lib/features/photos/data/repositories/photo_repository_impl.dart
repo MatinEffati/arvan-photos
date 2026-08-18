@@ -116,7 +116,7 @@ class PhotoRepositoryImpl
   Future<Either<Failure, Unit>> enqueueBackup(List<String> assetIds) async {
     try {
       await backupLocalDataSource.enqueue(assetIds);
-      AppBackgroundService.start();
+      await AppBackgroundService.start();
       FlutterBackgroundService().invoke('enqueue');
       return const Right(unit);
     } catch (e) {

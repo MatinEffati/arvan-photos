@@ -191,6 +191,9 @@ Future<void> onStart(ServiceInstance service) async {
       unawaited(runProcessingCycle());
     });
 
+    // Start the first cycle immediately
+    unawaited(runProcessingCycle());
+
     Timer.periodic(const Duration(seconds: 10), (timer) async {
       if (!isRunning) {
         timer.cancel();
