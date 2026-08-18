@@ -49,8 +49,12 @@ class BackgroundUploadService {
 void onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
+  if (service is AndroidServiceInstance) {
+    service.setAsForegroundService();
+  }
+
   // Initialize notifications in the background isolate
-  await NotificationService.initialize();
+  await NotificationService.initialize(service);
 
   // Load dotenv for the background isolate
   try {
@@ -159,6 +163,7 @@ void onStart(ServiceInstance service) async {
     final taskMap = tasks.first;
     final taskId = taskMap['id'] as String;
     final filePath = taskMap['file_path'] as String;
+    final localAssetId = taskMap['local_asset_id'] as String?;
     final file = File(filePath);
 
     // Mark as uploading
@@ -197,6 +202,13 @@ void onStart(ServiceInstance service) async {
             .where((t) => t['status'] == UploadStatus.success.name)
             .length;
         final overallProgress = (completedCount + progress) / totalCount;
+
+        if (service is AndroidServiceInstance) {
+          service.setForegroundNotificationInfo(
+            title: 'Uploading Photos ($completedCount/$totalCount)',
+            content: 'Overall Progress: ${(overallProgress * 100).toInt()}%',
+          );
+        }
 
         await NotificationService.showUploadProgress(
           id: 888,
@@ -248,6 +260,22 @@ void onStart(ServiceInstance service) async {
           where: 'id = ?',
           whereArgs: [taskId],
         );
+
+        // PERSIST SYNC STATUS IN BACKGROUND
+        if (localAssetId != null) {
+          final key = S3PhotoKeyGenerator().generateKey(filePath);
+          await db.insert(
+            'sync_registry',
+            {
+              'local_asset_id': localAssetId,
+              'remote_key': key,
+              'status': 'synced',
+              'synced_at': DateTime.now().toIso8601String(),
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+
         service.invoke('update', {'id': taskId, 'status': 'success'});
 
         // Update notification on success of one file
@@ -256,6 +284,13 @@ void onStart(ServiceInstance service) async {
         final completedCount = allTasks
             .where((t) => t['status'] == UploadStatus.success.name)
             .length;
+
+        if (service is AndroidServiceInstance) {
+          service.setForegroundNotificationInfo(
+            title: 'Uploading Photos ($completedCount/$totalCount)',
+            content: 'Upload in progress...',
+          );
+        }
 
         NotificationService.showUploadProgress(
           id: 888,

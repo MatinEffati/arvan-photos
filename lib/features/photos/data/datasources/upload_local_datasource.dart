@@ -27,6 +27,7 @@ class UploadLocalDataSourceImpl implements UploadLocalDataSource {
         'progress': task.progress,
         'status': task.status.name,
         'error_message': task.errorMessage,
+        'local_asset_id': task.localAssetId,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -40,6 +41,7 @@ class UploadLocalDataSourceImpl implements UploadLocalDataSource {
         'progress': task.progress,
         'status': task.status.name,
         'error_message': task.errorMessage,
+        'local_asset_id': task.localAssetId,
       },
       where: 'id = ?',
       whereArgs: [task.id],
@@ -65,6 +67,7 @@ class UploadLocalDataSourceImpl implements UploadLocalDataSource {
       progress: map['progress'] as double,
       status: UploadStatus.values.firstWhere((e) => e.name == map['status']),
       errorMessage: map['error_message'] as String?,
+      localAssetId: map['local_asset_id'] as String?,
     )).toList();
   }
 
@@ -84,6 +87,7 @@ class UploadLocalDataSourceImpl implements UploadLocalDataSource {
       progress: map['progress'] as double,
       status: UploadStatus.pending,
       errorMessage: map['error_message'] as String?,
+      localAssetId: map['local_asset_id'] as String?,
     );
   }
 }

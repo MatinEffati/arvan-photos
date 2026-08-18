@@ -11,7 +11,7 @@ abstract class DatabaseModule {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE sync_registry (
@@ -27,6 +27,9 @@ abstract class DatabaseModule {
         if (oldVersion < 2) {
           await _createUploadTasksTable(db);
         }
+        if (oldVersion < 3) {
+          await db.execute('ALTER TABLE upload_tasks ADD COLUMN local_asset_id TEXT');
+        }
       },
     );
   }
@@ -38,7 +41,8 @@ abstract class DatabaseModule {
         file_path TEXT NOT NULL,
         progress REAL NOT NULL,
         status TEXT NOT NULL,
-        error_message TEXT
+        error_message TEXT,
+        local_asset_id TEXT
       )
     ''');
   }

@@ -127,7 +127,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i340.SyncGalleryUseCase(
         gh<_i916.DeviceGalleryDataSource>(),
         gh<_i635.SyncLocalDataSource>(),
-        gh<_i666.PhotoCommandRepository>(),
+        gh<_i638.UploadLocalDataSource>(),
       ),
     );
     gh.factory<_i303.PhotosBloc>(
@@ -143,7 +143,10 @@ extension GetItInjectableX on _i174.GetIt {
       ),
     );
     gh.factory<_i628.SyncBloc>(
-      () => _i628.SyncBloc(gh<_i340.SyncGalleryUseCase>()),
+      () => _i628.SyncBloc(
+        gh<_i340.SyncGalleryUseCase>(),
+        gh<_i73.UploadBloc>(),
+      ),
     );
     return this;
   }

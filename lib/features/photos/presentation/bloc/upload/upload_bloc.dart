@@ -58,6 +58,26 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
       emit(UploadInitial());
     } else {
       emit(UploadInProgress(tasks: tasks));
+
+      // Check if service needs to be started for pending tasks
+      final hasPending = tasks.any((t) => t.status == UploadStatus.pending || t.status == UploadStatus.uploading);
+      if (hasPending) {
+        final service = FlutterBackgroundService();
+        final isRunning = await service.isRunning();
+        if (!isRunning) {
+          await NotificationService.ensureChannelCreated();
+
+          // Explicitly check for notification permission on Android 13+
+          if (Platform.isAndroid) {
+            final status = await Permission.notification.status;
+            if (!status.isGranted) {
+              await Permission.notification.request();
+            }
+          }
+
+          await service.startService();
+        }
+      }
     }
   }
 

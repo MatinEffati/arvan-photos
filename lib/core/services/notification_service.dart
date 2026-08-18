@@ -36,7 +36,7 @@ class NotificationService {
     return await androidPlugin?.requestNotificationsPermission() ?? false;
   }
 
-  static Future<void> initialize() async {
+  static Future<void> initialize([ServiceInstance? service]) async {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
@@ -50,7 +50,11 @@ class NotificationService {
       settings: settings,
       onDidReceiveNotificationResponse: (details) {
         if (details.actionId != null) {
-          FlutterBackgroundService().invoke(details.actionId!);
+          if (service != null) {
+            service.invoke(details.actionId!);
+          } else {
+            FlutterBackgroundService().invoke(details.actionId!);
+          }
         }
       },
     );

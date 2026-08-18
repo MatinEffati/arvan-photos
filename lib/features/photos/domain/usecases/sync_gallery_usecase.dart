@@ -6,17 +6,22 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
+import 'package:arvan_photos/features/photos/data/datasources/upload_local_datasource.dart';
+import 'package:arvan_photos/features/photos/domain/entities/upload_task.dart';
+import 'package:uuid/uuid.dart';
+
 @injectable
 class SyncGalleryUseCase {
   SyncGalleryUseCase(
     this._deviceDataSource,
     this._syncLocalDataSource,
-    this._commandRepository,
+    this._uploadLocalDataSource,
   );
 
   final DeviceGalleryDataSource _deviceDataSource;
   final SyncLocalDataSource _syncLocalDataSource;
-  final PhotoCommandRepository _commandRepository;
+  final UploadLocalDataSource _uploadLocalDataSource;
+  final _uuid = const Uuid();
 
   Future<Either<Failure, Unit>> call({
     void Function(int current, int total, double individualProgress)? onProgress,
@@ -35,24 +40,18 @@ class SyncGalleryUseCase {
         final file = await asset.file;
         
         if (file != null) {
-          // گزارش شروع آپلود فایل فعلی (current = i)
-          onProgress?.call(i, toSync.length, 0.0);
-
-          final result = await _commandRepository.uploadPhoto(
-            file,
-            onProgress: (individualProgress) {
-              onProgress?.call(i, toSync.length, individualProgress);
-            },
+          // Instead of uploading directly, add to the background upload queue
+          final task = UploadTask(
+            id: _uuid.v4(),
+            file: file,
+            status: UploadStatus.pending,
+            localAssetId: asset.id,
           );
           
-          await result.fold(
-            (failure) async => await _syncLocalDataSource.markFailed(asset.id),
-            (_) async {
-              await _syncLocalDataSource.markSynced(asset.id, 'synced_${asset.id}');
-              // بعد از اتمام آپلود این فایل، پیشرفت آن را 1.0 گزارش می‌دهیم
-              onProgress?.call(i, toSync.length, 1.0);
-            },
-          );
+          await _uploadLocalDataSource.addTask(task);
+          
+          // Mark as pending in the sync registry to avoid re-adding
+          await _syncLocalDataSource.markPending(asset.id);
         }
       }
 
