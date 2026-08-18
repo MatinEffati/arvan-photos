@@ -69,32 +69,35 @@ class NotificationService {
     required int progress,
     required int total,
     bool isPaused = false,
+    bool isComplete = false,
   }) async {
     final androidDetails = AndroidNotificationDetails(
       _androidChannel.id,
       _androidChannel.name,
       channelDescription: _androidChannel.description,
-      importance: _androidChannel.importance,
-      priority: Priority.high,
-      showProgress: true,
+      importance: isComplete ? Importance.defaultImportance : Importance.high,
+      priority: isComplete ? Priority.defaultPriority : Priority.high,
+      showProgress: !isComplete,
       maxProgress: 100,
       progress: progress,
-      ongoing: true,
+      ongoing: !isComplete,
       onlyAlertOnce: true,
       ticker: 'Upload Progress',
-      actions: [
-        if (!isPaused)
-          const AndroidNotificationAction('pause', 'Pause')
-        else
-          const AndroidNotificationAction('resume', 'Resume'),
-        const AndroidNotificationAction('stop', 'Stop'),
-      ],
+      actions: isComplete
+          ? null
+          : [
+              if (!isPaused)
+                const AndroidNotificationAction('pause', 'Pause')
+              else
+                const AndroidNotificationAction('resume', 'Resume'),
+              const AndroidNotificationAction('stop', 'Stop'),
+            ],
     );
 
     await _notificationsPlugin.show(
       id: id,
       title: title,
-      body: 'Overall Progress: $progress%',
+      body: isComplete ? 'All files backed up successfully' : 'Overall Progress: $progress%',
       notificationDetails: NotificationDetails(android: androidDetails),
     );
   }

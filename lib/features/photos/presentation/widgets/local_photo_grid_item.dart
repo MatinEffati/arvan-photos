@@ -10,6 +10,7 @@ class LocalPhotoGridItem extends StatelessWidget {
     required this.onLongPress,
     this.isSelected = false,
     this.isSelectionMode = false,
+    this.isDeleting = false,
     this.backupStatus,
     super.key,
   });
@@ -19,6 +20,7 @@ class LocalPhotoGridItem extends StatelessWidget {
   final VoidCallback onLongPress;
   final bool isSelected;
   final bool isSelectionMode;
+  final bool isDeleting;
   final Map<String, dynamic>? backupStatus;
 
   @override
@@ -37,17 +39,28 @@ class LocalPhotoGridItem extends StatelessWidget {
               padding: EdgeInsets.all(isSelected ? 8 : 0),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: AssetEntityImage(
-                  asset,
-                  isOriginal: false,
-                  thumbnailSize: const ThumbnailSize.square(200),
-                  fit: BoxFit.cover,
+                child: Opacity(
+                  opacity: isDeleting ? 0.5 : 1.0,
+                  child: AssetEntityImage(
+                    asset,
+                    isOriginal: false,
+                    thumbnailSize: const ThumbnailSize.square(200),
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             ),
           ),
           
-          // Selection Overlay
+          if (isDeleting)
+            const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+            ),
+
           if (isSelected)
             Positioned.fill(
               child: Container(
@@ -58,8 +71,7 @@ class LocalPhotoGridItem extends StatelessWidget {
               ),
             ),
 
-          // Selection Checkbox
-          if (isSelectionMode)
+          if (isSelectionMode && !isDeleting)
             Positioned(
               top: 4,
               left: 4,
@@ -70,12 +82,12 @@ class LocalPhotoGridItem extends StatelessWidget {
               ),
             ),
 
-          // Backup Status Overlay
-          Positioned(
-            bottom: 4,
-            right: 4,
-            child: _buildStatusIcon(status, progress),
-          ),
+          if (!isDeleting)
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: _buildStatusIcon(status, progress),
+            ),
         ],
       ),
     );
@@ -93,7 +105,6 @@ class LocalPhotoGridItem extends StatelessWidget {
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: Colors.white,
-                value: null, // Indeterminate or use progress
               ),
             ),
             if (progress > 0)
@@ -121,8 +132,13 @@ class LocalPhotoGridItem extends StatelessWidget {
           color: Colors.white70,
           size: 20,
         );
+      case 'manually_removed':
+        return const Icon(
+          Icons.cloud_off,
+          color: Colors.white54,
+          size: 18,
+        );
       default:
-        // Not backed up yet - show subtle icon or nothing like Google Photos
         return const Icon(
           Icons.cloud_off,
           color: Colors.white54,

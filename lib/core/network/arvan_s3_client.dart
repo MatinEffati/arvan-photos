@@ -98,14 +98,22 @@ class ArvanS3Client {
   }
 
   Future<void> deleteObject(String key) async {
-    final uri = Uri.parse('$baseUrl/$key');
-    final request = AWSHttpRequest(method: AWSHttpMethod.delete, uri: uri);
+    try {
+      final uri = Uri.parse('$baseUrl/$key');
+      final request = AWSHttpRequest(method: AWSHttpMethod.delete, uri: uri);
 
-    final signedRequest = await _signer.sign(request, credentialScope: _scope);
+      final signedRequest = await _signer.sign(request, credentialScope: _scope);
 
-    await _dio.deleteUri<dynamic>(
-      uri,
-      options: Options(headers: signedRequest.headers),
-    );
+      await _dio.deleteUri<dynamic>(
+        uri,
+        options: Options(
+          headers: signedRequest.headers,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+    } catch (e) {
+      print('S3_CLIENT_DELETE_ERROR: $e');
+      rethrow;
+    }
   }
 }

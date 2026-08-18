@@ -7,6 +7,7 @@ import 'package:arvan_photos/features/photos/domain/repositories/photo_command_r
 import 'package:arvan_photos/features/photos/domain/usecases/enqueue_backup_usecase.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/services.dart';
 import 'package:injectable/injectable.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -30,12 +31,16 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     on<DeviceGalleryGroupSelectionToggled>(_onGroupSelectionToggled);
     on<DeviceGallerySelectAllToggled>(_onSelectAllToggled);
     on<DeviceGalleryBackupRequested>(_onBackupRequested);
+    on<DeviceGalleryDeleteFromCloudRequested>(_onDeleteFromCloudRequested);
     on<DeviceGalleryAutoBackupToggled>(_onAutoBackupToggled);
     on<DeviceGallerySettingsRequested>(_onSettingsRequested);
 
     _statusSubscription = _repository.watchBackupStatus().listen((_) {
       add(const DeviceGallerySettingsRequested());
     });
+
+    PhotoManager.addChangeCallback(_onGalleryChanged);
+    PhotoManager.startChangeNotify();
   }
 
   final DeviceGalleryDataSource _dataSource;
@@ -47,8 +52,14 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
   static const String _autoBackupKey = 'auto_backup_enabled';
 
+  void _onGalleryChanged(MethodCall call) {
+    add(const DeviceGalleryRequested());
+  }
+
   @override
   Future<void> close() {
+    PhotoManager.removeChangeCallback(_onGalleryChanged);
+    PhotoManager.stopChangeNotify();
     _statusSubscription?.cancel();
     return super.close();
   }
@@ -57,7 +68,9 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     DeviceGalleryRequested event,
     Emitter<DeviceGalleryState> emit,
   ) async {
-    emit(DeviceGalleryLoadInProgress());
+    final isSilent = state is DeviceGalleryLoadSuccess;
+    if (!isSilent) emit(DeviceGalleryLoadInProgress());
+    
     try {
       final assets = await _dataSource.getLocalAssets();
       final groups = _groupAssets(assets);
@@ -65,6 +78,9 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       final isAutoBackupEnabled = _prefs.getBool(_autoBackupKey) ?? false;
       final syncedIds = await _backupLocalDataSource.getSyncedIds();
       final syncedIdsSet = syncedIds.toSet();
+      
+      final allQueue = await _backupLocalDataSource.getAll();
+      final inQueueSet = allQueue.map((e) => e['local_asset_id'] as String).toSet();
 
       final notSyncedAssets = assets.where((a) => !syncedIdsSet.contains(a.id)).toList();
       
@@ -76,12 +92,14 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
         notBackedUpThumbnails: notSyncedAssets.take(4).toList(),
       ));
 
-      // If auto-backup is enabled, automatically enqueue new items
       if (isAutoBackupEnabled) {
-        final toEnqueue = notSyncedAssets.map((a) => a.id).toList();
+        final toEnqueue = assets
+            .where((a) => !syncedIdsSet.contains(a.id) && !inQueueSet.contains(a.id))
+            .map((a) => a.id)
+            .toList();
+            
         if (toEnqueue.isNotEmpty) {
           await _enqueueBackupUseCase(toEnqueue);
-          // Refresh state to update counts ? Not strictly necessary if background service updates status
         }
       }
     } catch (e) {
@@ -97,7 +115,8 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     final yesterday = today.subtract(const Duration(days: 1));
 
     for (final asset in assets) {
-      final date = asset.createDateTime;
+      // Use modified date for grouping and sorting as it reflects downloads/saves better
+      final date = asset.modifiedDateTime;
       final assetDay = DateTime(date.year, date.month, date.day);
       String title;
 
@@ -114,7 +133,10 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
     final List<LocalPhotoGroup> groups = grouped.entries.map((entry) {
       final groupAssets = entry.value;
-      final groupDate = groupAssets.first.createDateTime;
+      // Sort assets within group by modified date descending (newest first)
+      groupAssets.sort((a, b) => b.modifiedDateTime.compareTo(a.modifiedDateTime));
+      
+      final groupDate = groupAssets.first.modifiedDateTime;
       return LocalPhotoGroup(
         title: entry.key,
         date: groupDate,
@@ -192,7 +214,10 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       final currentState = state as DeviceGalleryLoadSuccess;
       if (currentState.selectedAssetIds.isEmpty) return;
 
-      await Permission.notification.request();
+      final permission = await Permission.notification.status;
+      if (!permission.isGranted) {
+        await Permission.notification.request();
+      }
 
       emit(DeviceGalleryBackupInProgress(
         groups: currentState.groups,
@@ -217,6 +242,40 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     }
   }
 
+  Future<void> _onDeleteFromCloudRequested(
+    DeviceGalleryDeleteFromCloudRequested event,
+    Emitter<DeviceGalleryState> emit,
+  ) async {
+    if (state is DeviceGalleryLoadSuccess) {
+      final currentState = state as DeviceGalleryLoadSuccess;
+      
+      emit(DeviceGalleryActionInProgress(
+        groups: currentState.groups,
+        selectedAssetIds: currentState.selectedAssetIds,
+        deletingAssetIds: Set.from(event.assetIds),
+        isAutoBackupEnabled: currentState.isAutoBackupEnabled,
+        notBackedUpCount: currentState.notBackedUpCount,
+        notBackedUpThumbnails: currentState.notBackedUpThumbnails,
+      ));
+
+      final result = await _repository.deleteBackup(event.assetIds);
+      
+      result.fold(
+        (failure) {
+          emit(currentState.copyWith(
+            deletingAssetIds: {},
+            errorMessage: failure.message,
+          ));
+          // Reset error message immediately so it doesn't reappear on next state change
+          emit(currentState.copyWith(deletingAssetIds: {}));
+        },
+        (_) {
+          add(const DeviceGalleryRequested());
+        },
+      );
+    }
+  }
+
   Future<void> _onAutoBackupToggled(
     DeviceGalleryAutoBackupToggled event,
     Emitter<DeviceGalleryState> emit,
@@ -229,7 +288,6 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       emit(currentState.copyWith(isAutoBackupEnabled: event.isEnabled));
 
       if (event.isEnabled) {
-        // Enqueue everything that is not synced
         final allAssets = currentState.groups.expand((g) => g.assets).toList();
         final syncedIds = await _backupLocalDataSource.getSyncedIds();
         final syncedIdsSet = syncedIds.toSet();
@@ -250,7 +308,6 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     DeviceGallerySettingsRequested event,
     Emitter<DeviceGalleryState> emit,
   ) async {
-    // Just refresh the counts and thumbnails
     if (state is DeviceGalleryLoadSuccess) {
       final currentState = state as DeviceGalleryLoadSuccess;
       final syncedIds = await _backupLocalDataSource.getSyncedIds();

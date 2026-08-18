@@ -23,12 +23,6 @@ class BackupSettingsScreen extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             leading: const BackButton(),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () {},
-              ),
-            ],
           ),
           body: SingleChildScrollView(
             child: Column(

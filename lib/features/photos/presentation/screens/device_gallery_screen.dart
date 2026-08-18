@@ -4,6 +4,7 @@ import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/bac
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_state.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/backup_settings_screen.dart';
+import 'package:arvan_photos/features/photos/presentation/screens/local_photo_detail_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/photos_view_stub_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/date_section_header.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/local_photo_grid_item.dart';
@@ -17,20 +18,56 @@ class DeviceGalleryScreen extends StatefulWidget {
   State<DeviceGalleryScreen> createState() => _DeviceGalleryScreenState();
 }
 
-class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
+class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     context.read<DeviceGalleryBloc>().add(const DeviceGalleryRequested());
     context.read<BackupStatusBloc>().add(BackupStatusStarted());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh gallery when returning to app to catch any new downloads/changes
+      context.read<DeviceGalleryBloc>().add(const DeviceGalleryRequested());
+    }
+  }
+
+  void _confirmBulkDeleteCloud(BuildContext context, List<String> assetIds, BackupStatusState statusState) {
+    final syncedIds = assetIds.where((id) => statusState.statuses[id]?['status'] == 'synced').toList();
+    if (syncedIds.isEmpty) return;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete from Cloud'),
+        content: Text('Are you sure you want to delete ${syncedIds.length} photos from ArvanCloud? Local files will remain.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              context.read<DeviceGalleryBloc>().add(DeviceGalleryDeleteFromCloudRequested(syncedIds));
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -44,6 +81,10 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
         } else if (state is DeviceGalleryLoadFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: ${state.message}')),
+          );
+        } else if (state is DeviceGalleryLoadSuccess && state.errorMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${state.errorMessage}')),
           );
         }
       },
@@ -71,12 +112,41 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
         ),
         title: Text('${state.selectedAssetIds.length} selected'),
         actions: [
-          TextButton(
-            onPressed: () {
-              context.read<DeviceGalleryBloc>().add(const DeviceGalleryBackupRequested());
-            },
-            child: const Text('Back Up', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
+          if (state is DeviceGalleryActionInProgress)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else ...[
+            // If any selected item is synced, show delete from cloud
+            BlocBuilder<BackupStatusBloc, BackupStatusState>(
+              builder: (context, statusState) {
+                final anySynced = state.selectedAssetIds.any((id) => statusState.statuses[id]?['status'] == 'synced');
+                if (anySynced) {
+                  return IconButton(
+                    icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
+                    onPressed: () {
+                      _confirmBulkDeleteCloud(context, state.selectedAssetIds.toList(), statusState);
+                    },
+                    tooltip: 'Delete selected from Cloud',
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            TextButton(
+              onPressed: () {
+                context.read<DeviceGalleryBloc>().add(const DeviceGalleryBackupRequested());
+              },
+              child: const Text('Back Up', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
         ],
       );
     }
@@ -194,18 +264,32 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
                             final asset = group.assets[index];
-                            return LocalPhotoGridItem(
-                              asset: asset,
-                              isSelected: state.selectedAssetIds.contains(asset.id),
-                              isSelectionMode: state.selectedAssetIds.isNotEmpty,
-                              backupStatus: statusState.statuses[asset.id],
-                              onTap: () {
-                                if (state.selectedAssetIds.isNotEmpty) {
+                          final isDeleting = state is DeviceGalleryLoadSuccess &&
+                              state.deletingAssetIds.contains(asset.id);
+
+                          return LocalPhotoGridItem(
+                            asset: asset,
+                            isSelected: state.selectedAssetIds.contains(asset.id),
+                            isSelectionMode: state.selectedAssetIds.isNotEmpty,
+                            isDeleting: isDeleting,
+                            backupStatus: statusState.statuses[asset.id],
+                            onTap: () {
+                              if (isDeleting) return;
+                              if (state.selectedAssetIds.isNotEmpty) {
                                   context
                                       .read<DeviceGalleryBloc>()
                                       .add(DeviceGallerySelectionToggled(asset.id));
                                 } else {
-                                  // Detail view not requested
+                                  final allAssets = state.groups.expand((g) => g.assets).toList();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => LocalPhotoDetailScreen(
+                                        assets: allAssets,
+                                        initialIndex: allAssets.indexOf(asset),
+                                      ),
+                                    ),
+                                  );
                                 }
                               },
                               onLongPress: () {

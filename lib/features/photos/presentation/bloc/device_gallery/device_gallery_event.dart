@@ -35,6 +35,14 @@ class DeviceGalleryBackupRequested extends DeviceGalleryEvent {
   const DeviceGalleryBackupRequested();
 }
 
+class DeviceGalleryDeleteFromCloudRequested extends DeviceGalleryEvent {
+  const DeviceGalleryDeleteFromCloudRequested(this.assetIds);
+  final List<String> assetIds;
+
+  @override
+  List<Object?> get props => [assetIds];
+}
+
 class DeviceGalleryAutoBackupToggled extends DeviceGalleryEvent {
   const DeviceGalleryAutoBackupToggled(this.isEnabled);
   final bool isEnabled;

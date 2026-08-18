@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:arvan_photos/core/error/error_mapper.dart';
@@ -26,6 +27,9 @@ class PhotoRepositoryImpl
   final PhotosRemoteDataSource remoteDataSource;
   final PhotoKeyGenerator keyGenerator;
   final BackupLocalDataSource backupLocalDataSource;
+
+  final _statusController = StreamController<Map<String, dynamic>>.broadcast();
+  StreamSubscription? _backgroundSub;
 
   @override
   Future<Either<Failure, PaginatedPhotos>> getPhotos({
@@ -121,8 +125,46 @@ class PhotoRepositoryImpl
   }
 
   @override
+  Future<Either<Failure, Unit>> deleteBackup(List<String> assetIds) async {
+    try {
+      print('DEBUG_DELETE: Starting deletion for ${assetIds.length} assets');
+      for (final id in assetIds) {
+        final statusMap = await backupLocalDataSource.getById(id);
+        if (statusMap != null && statusMap['remote_key'] != null) {
+          final key = statusMap['remote_key'] as String;
+          print('DEBUG_DELETE: Deleting from cloud: $key');
+          await remoteDataSource.deletePhoto(key);
+          await backupLocalDataSource.updateStatus(id, 'manually_removed');
+          _statusController.add({'assetId': id, 'status': 'manually_removed'});
+        } else {
+          print('DEBUG_DELETE: Asset $id not found or has no remote key');
+        }
+      }
+      return const Right(unit);
+    } catch (e) {
+      print('DEBUG_DELETE: Error occurred: $e');
+      return Left(ErrorMapper.map(e));
+    }
+  }
+
+  @override
   Stream<Map<String, dynamic>> watchBackupStatus() {
-    return FlutterBackgroundService().on('status_update').map((event) => event!);
+    final controller = StreamController<Map<String, dynamic>>.broadcast();
+    
+    final bgSub = FlutterBackgroundService().on('status_update').listen((e) {
+      if (e != null && !controller.isClosed) controller.add(e);
+    });
+
+    final fgSub = _statusController.stream.listen((e) {
+      if (!controller.isClosed) controller.add(e);
+    });
+
+    controller.onCancel = () {
+      bgSub.cancel();
+      fgSub.cancel();
+    };
+
+    return controller.stream;
   }
 
   @override
