@@ -231,85 +231,80 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         onRefresh: () async {
           context.read<DeviceGalleryBloc>().add(const DeviceGalleryRequested());
         },
-        child: BlocBuilder<BackupStatusBloc, BackupStatusState>(
-          builder: (context, statusState) {
-            return CustomScrollView(
-              controller: _scrollController,
-              slivers: [
-                ...state.groups.expand((group) {
-                  final groupIds = group.assets.map((a) => a.id).toSet();
-                  final isGroupSelected =
-                      groupIds.every((id) => state.selectedAssetIds.contains(id));
+        child: CustomScrollView(
+          controller: _scrollController,
+          cacheExtent: 1000, // Pre-render items outside view for smoother scrolling
+          slivers: [
+            ...state.groups.expand((group) {
+              final groupIds = group.assets.map((a) => a.id).toSet();
+              final isGroupSelected =
+                  groupIds.every((id) => state.selectedAssetIds.contains(id));
 
-                  return [
-                    SliverToBoxAdapter(
-                      child: DateSectionHeader(
-                        title: group.title,
-                        isSelected: isGroupSelected,
-                        isSelectionMode: state.selectedAssetIds.isNotEmpty,
-                        onToggleSelection: () {
-                          context
-                              .read<DeviceGalleryBloc>()
-                              .add(DeviceGalleryGroupSelectionToggled(group.title));
-                        },
-                      ),
+              return [
+                SliverToBoxAdapter(
+                  child: DateSectionHeader(
+                    title: group.title,
+                    isSelected: isGroupSelected,
+                    isSelectionMode: state.selectedAssetIds.isNotEmpty,
+                    onToggleSelection: () {
+                      context
+                          .read<DeviceGalleryBloc>()
+                          .add(DeviceGalleryGroupSelectionToggled(group.title));
+                    },
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 2,
+                      mainAxisSpacing: 2,
                     ),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      sliver: SliverGrid(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 2,
-                          mainAxisSpacing: 2,
-                        ),
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final asset = group.assets[index];
-                          final isDeleting = state is DeviceGalleryLoadSuccess &&
-                              state.deletingAssetIds.contains(asset.id);
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final asset = group.assets[index];
+                        final isDeleting = state.deletingAssetIds.contains(asset.id);
 
-                          return LocalPhotoGridItem(
-                            asset: asset,
-                            isSelected: state.selectedAssetIds.contains(asset.id),
-                            isSelectionMode: state.selectedAssetIds.isNotEmpty,
-                            isDeleting: isDeleting,
-                            backupStatus: statusState.statuses[asset.id],
-                            onTap: () {
-                              if (isDeleting) return;
-                              if (state.selectedAssetIds.isNotEmpty) {
-                                  context
-                                      .read<DeviceGalleryBloc>()
-                                      .add(DeviceGallerySelectionToggled(asset.id));
-                                } else {
-                                  final allAssets = state.groups.expand((g) => g.assets).toList();
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => LocalPhotoDetailScreen(
-                                        assets: allAssets,
-                                        initialIndex: allAssets.indexOf(asset),
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                              onLongPress: () {
-                                context
-                                    .read<DeviceGalleryBloc>()
-                                    .add(DeviceGallerySelectionToggled(asset.id));
-                              },
-                            );
+                        return LocalPhotoGridItem(
+                          key: ValueKey(asset.id),
+                          asset: asset,
+                          isDeleting: isDeleting,
+                          onTap: () {
+                            if (isDeleting) return;
+                            if (state.selectedAssetIds.isNotEmpty) {
+                              context
+                                  .read<DeviceGalleryBloc>()
+                                  .add(DeviceGallerySelectionToggled(asset.id));
+                            } else {
+                              final allAssets = state.groups.expand((g) => g.assets).toList();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => LocalPhotoDetailScreen(
+                                    assets: allAssets,
+                                    initialIndex: allAssets.indexOf(asset),
+                                  ),
+                                ),
+                              );
+                            }
                           },
-                          childCount: group.assets.length,
-                        ),
-                      ),
+                          onLongPress: () {
+                            context
+                                .read<DeviceGalleryBloc>()
+                                .add(DeviceGallerySelectionToggled(asset.id));
+                          },
+                        );
+                      },
+                      childCount: group.assets.length,
+                      addAutomaticKeepAlives: true,
                     ),
-                  ];
-                }).toList(),
-                const SliverToBoxAdapter(child: SizedBox(height: 80)),
-              ],
-            );
-          },
+                  ),
+                ),
+              ];
+            }).toList(),
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
         ),
       );
     }
