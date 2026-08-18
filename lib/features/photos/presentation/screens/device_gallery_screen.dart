@@ -211,7 +211,8 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
           padding: EdgeInsets.only(right: 16.0),
           child: CircleAvatar(
             radius: 14,
-            backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=arvan'),
+            backgroundColor: AppColors.grey200,
+            child: Icon(Icons.person, size: 18, color: AppColors.grey700),
           ),
         ),
       ],
