@@ -18,22 +18,42 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
 
   @override
   Future<void> enqueue(List<String> assetIds) async {
-    final batch = _db.batch();
     final now = DateTime.now().toIso8601String();
     
-    for (final id in assetIds) {
-      batch.insert(
-        _tableName,
-        {
-          'local_asset_id': id,
-          'status': 'queued',
-          'progress': 0.0,
-          'queued_at': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
-    await batch.commit(noResult: true);
+    await _db.transaction((txn) async {
+      for (final id in assetIds) {
+        // Only insert if not exists, or update if status is NOT 'synced'
+        final existing = await txn.query(
+          _tableName,
+          columns: ['status'],
+          where: 'local_asset_id = ?',
+          whereArgs: [id],
+        );
+
+        if (existing.isEmpty) {
+          await txn.insert(_tableName, {
+            'local_asset_id': id,
+            'status': 'queued',
+            'progress': 0.0,
+            'queued_at': now,
+          });
+        } else {
+          final status = existing.first['status'] as String;
+          if (status != 'synced') {
+            await txn.update(
+              _tableName,
+              {
+                'status': 'queued',
+                'progress': 0.0,
+                'queued_at': now,
+              },
+              where: 'local_asset_id = ?',
+              whereArgs: [id],
+            );
+          }
+        }
+      }
+    });
   }
 
   @override

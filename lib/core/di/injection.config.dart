@@ -24,8 +24,6 @@ import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data
     as _i540;
 import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data_source_impl.dart'
     as _i1058;
-import 'package:arvan_photos/features/photos/data/datasources/sync_local_datasource.dart'
-    as _i635;
 import 'package:arvan_photos/features/photos/data/datasources/upload_local_datasource.dart'
     as _i638;
 import 'package:arvan_photos/features/photos/data/repositories/photo_repository_impl.dart'
@@ -44,8 +42,6 @@ import 'package:arvan_photos/features/photos/domain/usecases/enqueue_backup_usec
     as _i930;
 import 'package:arvan_photos/features/photos/domain/usecases/get_photos_usecase.dart'
     as _i1014;
-import 'package:arvan_photos/features/photos/domain/usecases/sync_gallery_usecase.dart'
-    as _i340;
 import 'package:arvan_photos/features/photos/domain/usecases/upload_photo_usecase.dart'
     as _i209;
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart'
@@ -56,8 +52,6 @@ import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/de
     as _i725;
 import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart'
     as _i303;
-import 'package:arvan_photos/features/photos/presentation/bloc/sync/sync_bloc.dart'
-    as _i628;
 import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_bloc.dart'
     as _i73;
 import 'package:dio/dio.dart' as _i361;
@@ -90,9 +84,6 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i916.DeviceGalleryDataSource>(
       () => _i916.DeviceGalleryDataSourceImpl(),
     );
-    gh.lazySingleton<_i635.SyncLocalDataSource>(
-      () => _i635.SyncLocalDataSourceImpl(gh<_i779.Database>()),
-    );
     gh.lazySingleton<_i638.UploadLocalDataSource>(
       () => _i638.UploadLocalDataSourceImpl(gh<_i779.Database>()),
     );
@@ -105,18 +96,11 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i540.PhotosRemoteDataSource>(
       () => _i1058.PhotosRemoteDataSourceImpl(gh<_i209.ArvanS3Client>()),
     );
-    gh.factory<_i340.SyncGalleryUseCase>(
-      () => _i340.SyncGalleryUseCase(
-        gh<_i916.DeviceGalleryDataSource>(),
-        gh<_i635.SyncLocalDataSource>(),
-        gh<_i638.UploadLocalDataSource>(),
-      ),
-    );
     gh.lazySingleton<_i207.PhotoRepositoryImpl>(
       () => _i207.PhotoRepositoryImpl(
         gh<_i540.PhotosRemoteDataSource>(),
         gh<_i871.PhotoKeyGenerator>(),
-        gh<_i635.SyncLocalDataSource>(),
+        gh<InvalidType>(),
         gh<_i485.BackupLocalDataSource>(),
       ),
     );
@@ -125,10 +109,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i666.PhotoCommandRepository>(
       () => repositoryModule.commandRepository(gh<_i207.PhotoRepositoryImpl>()),
-    );
-    gh.factory<_i628.SyncBloc>(
-      () =>
-          _i628.SyncBloc(gh<_i340.SyncGalleryUseCase>(), gh<_i73.UploadBloc>()),
     );
     gh.factory<_i1014.GetPhotosUseCase>(
       () => _i1014.GetPhotosUseCase(gh<_i591.PhotoQueryRepository>()),

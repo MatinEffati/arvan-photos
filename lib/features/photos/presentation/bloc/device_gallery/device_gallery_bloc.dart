@@ -5,6 +5,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 part 'device_gallery_event.dart';
@@ -144,6 +145,11 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     if (state is DeviceGalleryLoadSuccess) {
       final currentState = state as DeviceGalleryLoadSuccess;
       if (currentState.selectedAssetIds.isEmpty) return;
+
+      // Request notification permission before starting the backup service
+      // Note: Even if denied, the foreground service will start, but the user
+      // won't see the progress notification. This is handled gracefully.
+      await Permission.notification.request();
 
       emit(DeviceGalleryBackupInProgress(
         groups: currentState.groups,

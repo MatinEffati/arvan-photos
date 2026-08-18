@@ -6,7 +6,6 @@ import 'package:arvan_photos/features/photos/data/datasources/backup_background_
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart';
-import 'package:arvan_photos/features/photos/presentation/bloc/sync/sync_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/main_navigation_screen.dart';
 import 'package:flutter/material.dart';
@@ -45,9 +44,6 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) => getIt<UploadBloc>(),
-        ),
-        BlocProvider(
-          create: (context) => getIt<SyncBloc>(),
         ),
         BlocProvider(
           create: (context) => getIt<DeviceGalleryBloc>(),
