@@ -14,6 +14,16 @@ import 'package:arvan_photos/core/database/database_module.dart' as _i62;
 import 'package:arvan_photos/core/di/core_module.dart' as _i234;
 import 'package:arvan_photos/core/di/repository_module.dart' as _i774;
 import 'package:arvan_photos/core/network/arvan_s3_client.dart' as _i209;
+import 'package:arvan_photos/features/cloud/data/datasources/cloud_remote_data_source.dart'
+    as _i733;
+import 'package:arvan_photos/features/cloud/data/repositories/cloud_repository_impl.dart'
+    as _i342;
+import 'package:arvan_photos/features/cloud/domain/repositories/cloud_repository.dart'
+    as _i914;
+import 'package:arvan_photos/features/cloud/domain/usecases/get_cloud_photos.dart'
+    as _i717;
+import 'package:arvan_photos/features/cloud/presentation/bloc/cloud_bloc.dart'
+    as _i833;
 import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart'
     as _i485;
 import 'package:arvan_photos/features/photos/data/datasources/device_gallery_datasource.dart'
@@ -98,8 +108,14 @@ extension GetItInjectableX on _i174.GetIt {
     gh.factory<_i73.UploadBloc>(
       () => _i73.UploadBloc(gh<_i638.UploadLocalDataSource>()),
     );
+    gh.lazySingleton<_i733.CloudRemoteDataSource>(
+      () => _i733.CloudRemoteDataSourceImpl(gh<_i209.ArvanS3Client>()),
+    );
     gh.lazySingleton<_i540.PhotosRemoteDataSource>(
       () => _i1058.PhotosRemoteDataSourceImpl(gh<_i209.ArvanS3Client>()),
+    );
+    gh.lazySingleton<_i914.CloudRepository>(
+      () => _i342.CloudRepositoryImpl(gh<_i733.CloudRemoteDataSource>()),
     );
     gh.lazySingleton<_i207.PhotoRepositoryImpl>(
       () => _i207.PhotoRepositoryImpl(
@@ -122,6 +138,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i51.BackupStatusBloc>(
       () => _i51.BackupStatusBloc(gh<_i666.PhotoCommandRepository>()),
+    );
+    gh.lazySingleton<_i717.GetCloudPhotos>(
+      () => _i717.GetCloudPhotos(gh<_i914.CloudRepository>()),
     );
     gh.factory<_i470.DeleteMultiplePhotosUseCase>(
       () =>
@@ -150,6 +169,9 @@ extension GetItInjectableX on _i174.GetIt {
         gh<_i1014.GetPhotosUseCase>(),
         gh<_i470.DeleteMultiplePhotosUseCase>(),
       ),
+    );
+    gh.factory<_i833.CloudBloc>(
+      () => _i833.CloudBloc(gh<_i717.GetCloudPhotos>()),
     );
     gh.factory<_i225.PhotoDetailCubit>(
       () => _i225.PhotoDetailCubit(

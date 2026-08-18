@@ -6,6 +6,7 @@ import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/bac
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_bloc.dart';
+import 'package:arvan_photos/features/cloud/presentation/bloc/cloud_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/main_navigation_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -48,6 +49,9 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) => getIt<BackupStatusBloc>(),
+        ),
+        BlocProvider(
+          create: (context) => getIt<CloudBloc>(),
         ),
       ],
       child: MaterialApp(

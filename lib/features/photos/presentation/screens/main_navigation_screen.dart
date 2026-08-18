@@ -1,6 +1,7 @@
 import 'package:arvan_photos/core/presentation/widgets/empty_state_screen.dart';
 import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/core/theme/app_spacing.dart';
+import 'package:arvan_photos/features/cloud/presentation/screens/cloud_photos_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/device_gallery_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/floating_nav_bar.dart';
 import 'package:flutter/material.dart';
@@ -17,10 +18,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _screens = [
     const DeviceGalleryScreen(),
-    const EmptyStateScreen(
-      title: 'Cloud',
-      message: 'Cloud Storage functionality will be implemented later.',
-    ),
+    const CloudPhotosScreen(),
     const EmptyStateScreen(
       title: 'Library',
       message: 'Library functionality will be implemented later.',
