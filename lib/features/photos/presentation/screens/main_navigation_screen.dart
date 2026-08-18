@@ -1,6 +1,8 @@
 import 'package:arvan_photos/core/presentation/widgets/empty_state_screen.dart';
 import 'package:arvan_photos/core/theme/app_colors.dart';
+import 'package:arvan_photos/core/theme/app_spacing.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/device_gallery_screen.dart';
+import 'package:arvan_photos/features/photos/presentation/widgets/floating_nav_bar.dart';
 import 'package:flutter/material.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -16,45 +18,68 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = [
     const DeviceGalleryScreen(),
     const EmptyStateScreen(
-      title: 'Search',
-      message: 'Search functionality will be implemented later.',
+      title: 'Cloud',
+      message: 'Cloud Storage functionality will be implemented later.',
     ),
     const EmptyStateScreen(
       title: 'Library',
       message: 'Library functionality will be implemented later.',
+    ),
+    const EmptyStateScreen(
+      title: 'Create',
+      message: 'Create functionality will be implemented later.',
+    ),
+    const EmptyStateScreen(
+      title: 'Search',
+      message: 'Search functionality will be implemented later.',
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        indicatorColor: AppColors.primary.withValues(alpha: 0.2),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.photo_library_outlined),
-            selectedIcon: Icon(Icons.photo_library, color: AppColors.primary),
-            label: 'Photos',
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: _screens,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.search),
-            selectedIcon: Icon(Icons.search, color: AppColors.primary),
-            label: 'Search',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.collections_outlined),
-            selectedIcon: Icon(Icons.collections, color: AppColors.primary),
-            label: 'Collections',
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.m,
+                  vertical: AppSpacing.m,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: FloatingNavBar(
+                        selectedIndex: _selectedIndex,
+                        onItemSelected: (index) {
+                          setState(() {
+                            _selectedIndex = index;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s),
+                    FloatingSearchButton(
+                      isSelected: _selectedIndex == 4,
+                      onTap: () {
+                        setState(() {
+                          _selectedIndex = 4;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
