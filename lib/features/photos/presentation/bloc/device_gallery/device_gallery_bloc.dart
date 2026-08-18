@@ -35,8 +35,16 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     on<DeviceGalleryAutoBackupToggled>(_onAutoBackupToggled);
     on<DeviceGallerySettingsRequested>(_onSettingsRequested);
 
-    _statusSubscription = _repository.watchBackupStatus().listen((_) {
-      add(const DeviceGallerySettingsRequested());
+    _statusSubscription = _repository.watchBackupStatus().listen((event) {
+      final status = event['status'] as String?;
+      // Only recount cloud items when a file is actually synced or removed.
+      // This prevents constant API calls during upload progress updates.
+      if (status == 'synced' || status == 'manually_removed') {
+        _debounceTimer?.cancel();
+        _debounceTimer = Timer(const Duration(seconds: 2), () {
+          add(const DeviceGallerySettingsRequested());
+        });
+      }
     });
 
     PhotoManager.addChangeCallback(_onGalleryChanged);
@@ -49,6 +57,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
   final PhotoCommandRepository _repository;
   final SharedPreferences _prefs;
   StreamSubscription? _statusSubscription;
+  Timer? _debounceTimer;
 
   static const String _autoBackupKey = 'auto_backup_enabled';
 
@@ -61,6 +70,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     PhotoManager.removeChangeCallback(_onGalleryChanged);
     PhotoManager.stopChangeNotify();
     _statusSubscription?.cancel();
+    _debounceTimer?.cancel();
     return super.close();
   }
 
