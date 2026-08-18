@@ -19,6 +19,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
     this.isAutoBackupEnabled = false,
     this.notBackedUpCount = 0,
     this.notBackedUpThumbnails = const [],
+    this.cloudCount = 0,
     this.errorMessage,
   });
 
@@ -28,6 +29,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
   final bool isAutoBackupEnabled;
   final int notBackedUpCount;
   final List<AssetEntity> notBackedUpThumbnails;
+  final int cloudCount;
   final String? errorMessage;
 
   @override
@@ -38,6 +40,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
         isAutoBackupEnabled,
         notBackedUpCount,
         notBackedUpThumbnails,
+        cloudCount,
         errorMessage,
       ];
 
@@ -48,6 +51,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
     bool? isAutoBackupEnabled,
     int? notBackedUpCount,
     List<AssetEntity>? notBackedUpThumbnails,
+    int? cloudCount,
     String? errorMessage,
   }) {
     return DeviceGalleryLoadSuccess(
@@ -58,6 +62,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
       notBackedUpCount: notBackedUpCount ?? this.notBackedUpCount,
       notBackedUpThumbnails:
           notBackedUpThumbnails ?? this.notBackedUpThumbnails,
+      cloudCount: cloudCount ?? this.cloudCount,
       errorMessage: errorMessage,
     );
   }

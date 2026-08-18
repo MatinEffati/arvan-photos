@@ -62,6 +62,18 @@ class BackupSettingsScreen extends StatelessWidget {
                   enabled: isAutoBackupEnabled,
                 ),
                 const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.cloud_done, color: Colors.blue),
+                  title: const Text('Storage used on ArvanCloud'),
+                  subtitle: Text('${state.cloudCount} photos backed up'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.refresh, size: 20),
+                    onPressed: () {
+                      context.read<DeviceGalleryBloc>().add(const DeviceGallerySettingsRequested());
+                    },
+                  ),
+                ),
+                const Divider(),
                 if (!isAutoBackupEnabled && state.notBackedUpCount > 0) ...[
                   _buildBackupStatusSection(context, state),
                 ],

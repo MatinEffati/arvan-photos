@@ -84,12 +84,16 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
       final notSyncedAssets = assets.where((a) => !syncedIdsSet.contains(a.id)).toList();
       
+      final cloudCountResult = await _repository.getCloudCount();
+      final cloudCount = cloudCountResult.fold((_) => 0, (count) => count);
+      
       emit(DeviceGalleryLoadSuccess(
         groups: groups,
         selectedAssetIds: const {},
         isAutoBackupEnabled: isAutoBackupEnabled,
         notBackedUpCount: notSyncedAssets.length,
         notBackedUpThumbnails: notSyncedAssets.take(4).toList(),
+        cloudCount: cloudCount,
       ));
 
       if (isAutoBackupEnabled) {
@@ -316,9 +320,13 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       final allAssets = currentState.groups.expand((g) => g.assets).toList();
       final notSyncedAssets = allAssets.where((a) => !syncedIdsSet.contains(a.id)).toList();
 
+      final cloudCountResult = await _repository.getCloudCount();
+      final cloudCount = cloudCountResult.fold((_) => currentState.cloudCount, (count) => count);
+
       emit(currentState.copyWith(
         notBackedUpCount: notSyncedAssets.length,
         notBackedUpThumbnails: notSyncedAssets.take(4).toList(),
+        cloudCount: cloudCount,
       ));
     }
   }

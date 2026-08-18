@@ -176,4 +176,14 @@ class PhotoRepositoryImpl
   Future<List<String>> getSyncedIds() {
     return backupLocalDataSource.getSyncedIds();
   }
+
+  @override
+  Future<Either<Failure, int>> getCloudCount() async {
+    try {
+      final count = await remoteDataSource.getCloudCount();
+      return Right(count);
+    } catch (e) {
+      return Left(ErrorMapper.map(e));
+    }
+  }
 }

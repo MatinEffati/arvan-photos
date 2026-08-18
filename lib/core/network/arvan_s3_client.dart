@@ -64,6 +64,22 @@ class ArvanS3Client {
     );
   }
 
+  Future<int> getBucketObjectCount() async {
+    int totalCount = 0;
+    String? nextToken;
+
+    do {
+      final response = await listObjects(
+        continuationToken: nextToken,
+        maxKeys: 1000, // Max allowed by S3
+      );
+      totalCount += response.contents.length;
+      nextToken = response.nextContinuationToken;
+    } while (nextToken != null);
+
+    return totalCount;
+  }
+
   Future<void> putObject(
     String key, 
     File file, {

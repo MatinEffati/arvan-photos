@@ -72,6 +72,17 @@ class PhotosRemoteDataSourceImpl implements PhotosRemoteDataSource {
     }
   }
 
+  @override
+  Future<int> getCloudCount() async {
+    try {
+      return await _client.getBucketObjectCount();
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      throw ServerException(message: e.toString());
+    }
+  }
+
   Exception _handleDioException(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:

@@ -17,4 +17,6 @@ abstract class PhotosRemoteDataSource {
   });
 
   Future<void> deletePhoto(String key);
+
+  Future<int> getCloudCount();
 }

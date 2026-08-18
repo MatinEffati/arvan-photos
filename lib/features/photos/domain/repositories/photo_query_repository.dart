@@ -8,4 +8,6 @@ abstract class PhotoQueryRepository {
     String? continuationToken,
     int maxKeys = 20,
   });
+
+  Future<Either<Failure, int>> getCloudCount();
 }
