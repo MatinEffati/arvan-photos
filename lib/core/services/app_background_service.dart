@@ -112,18 +112,9 @@ Future<void> onStart(ServiceInstance service) async {
     Future<void> runProcessingCycle() async {
       if (!isRunning || isPaused) return;
 
-      try {
-        final isAutoBackupEnabled =
-            prefs.getBool('auto_backup_enabled') ?? false;
-        if (isAutoBackupEnabled) {
-          await _scanAndEnqueueBackup(
-            localDataSource: backupLocalDataSource,
-            repository: repository,
-          );
-        }
-      } catch (e) {
-        debugPrint('BACKUP_SERVICE_ERROR (Scan): $e');
-      }
+      // Note: We removed automatic scanning here because PhotoManager 
+      // does not support background isolates. 
+      // Automatic scanning is now handled by the UI Bloc when the app is open.
 
       if (activeUploads.length >= AppBackgroundService.maxConcurrentUploads) {
         return;
@@ -212,46 +203,7 @@ Future<void> onStart(ServiceInstance service) async {
   }
 }
 
-Future<void> _scanAndEnqueueBackup({
-  required BackupLocalDataSource localDataSource,
-  required PhotoRepositoryImpl repository,
-}) async {
-  final paths = await PhotoManager.getAssetPathList(
-    type: RequestType.image,
-    onlyAll: true,
-  );
-  if (paths.isNotEmpty) {
-    final allAlbum = paths.first;
-    final count = await allAlbum.assetCountAsync;
-    final assets = await allAlbum.getAssetListRange(start: 0, end: count);
-
-    final syncedIds = await localDataSource.getSyncedIds();
-    final syncedIdsSet = syncedIds.toSet();
-
-    final allInQueue = await localDataSource.getAll();
-    final allInQueueIds = allInQueue
-        .map((e) => e['local_asset_id']! as String)
-        .toSet();
-    final manuallyRemovedIds = allInQueue
-        .where((e) => e['status'] == 'manually_removed')
-        .map((e) => e['local_asset_id']! as String)
-        .toSet();
-
-    final toEnqueue = assets
-        .where(
-          (a) =>
-              !syncedIdsSet.contains(a.id) &&
-              !allInQueueIds.contains(a.id) &&
-              !manuallyRemovedIds.contains(a.id),
-        )
-        .map((a) => a.id)
-        .toList();
-
-    if (toEnqueue.isNotEmpty) {
-      await repository.enqueueBackup(toEnqueue);
-    }
-  }
-}
+// Removed _scanAndEnqueueBackup because PhotoManager is not isolate-safe.
 
 Future<void> _startBackupUpload({
   required String assetId,

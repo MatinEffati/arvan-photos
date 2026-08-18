@@ -75,10 +75,22 @@ class LocalPhotoGridItem extends StatelessWidget {
             Positioned(
               top: 4,
               left: 4,
-              child: Icon(
-                isSelected ? Icons.check_circle : Icons.circle_outlined,
-                color: isSelected ? AppColors.primary : Colors.white70,
-                size: 24,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    if (!isSelected)
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                      ),
+                  ],
+                ),
+                child: Icon(
+                  isSelected ? Icons.check_circle : Icons.circle_outlined,
+                  color: isSelected ? AppColors.primary : Colors.white,
+                  size: 24,
+                ),
               ),
             ),
 
@@ -94,14 +106,15 @@ class LocalPhotoGridItem extends StatelessWidget {
   }
 
   Widget _buildStatusIcon(String? status, double progress) {
+    Widget icon;
     switch (status) {
       case 'uploading':
-        return Stack(
+        icon = Stack(
           alignment: Alignment.center,
           children: [
             const SizedBox(
-              width: 20,
-              height: 20,
+              width: 18,
+              height: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: Colors.white,
@@ -110,40 +123,59 @@ class LocalPhotoGridItem extends StatelessWidget {
             if (progress > 0)
               Text(
                 '${(progress * 100).toInt()}',
-                style: const TextStyle(color: Colors.white, fontSize: 8),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 7,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
           ],
         );
+        break;
       case 'synced':
-        return const Icon(
+        icon = const Icon(
           Icons.cloud_done,
           color: Colors.white,
           size: 20,
         );
+        break;
       case 'failed':
-        return const Icon(
+        icon = const Icon(
           Icons.error,
-          color: Colors.red,
+          color: AppColors.error,
           size: 20,
         );
+        break;
       case 'queued':
-        return const Icon(
-          Icons.cloud_upload_outlined,
-          color: Colors.white70,
+        icon = const Icon(
+          Icons.cloud_upload,
+          color: Colors.white,
           size: 20,
         );
-      case 'manually_removed':
-        return const Icon(
-          Icons.cloud_off,
-          color: Colors.white54,
-          size: 18,
-        );
+        break;
       default:
-        return const Icon(
+        // By default show cloud_off for items not synced/queued
+        icon = const Icon(
           Icons.cloud_off,
-          color: Colors.white54,
+          color: Colors.white70,
           size: 18,
         );
     }
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 4,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: icon,
+    );
   }
 }

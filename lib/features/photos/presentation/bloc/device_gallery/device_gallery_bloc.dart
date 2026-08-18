@@ -83,7 +83,10 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     
     try {
       final assets = await _dataSource.getLocalAssets();
-      final groups = _groupAssets(assets);
+      
+      // If there are many assets, grouping them can be expensive.
+      // We do it once here and store it.
+      final groups = await _groupAssetsAsync(assets);
       
       final isAutoBackupEnabled = _prefs.getBool(_autoBackupKey) ?? false;
       final syncedIds = await _backupLocalDataSource.getSyncedIds();
@@ -121,7 +124,12 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     }
   }
 
-  List<LocalPhotoGroup> _groupAssets(List<AssetEntity> assets) {
+  Future<List<LocalPhotoGroup>> _groupAssetsAsync(List<AssetEntity> assets) async {
+    // For now, we perform grouping in a way that minimizes DateFormat creation
+    return _groupAssetsInternal(assets);
+  }
+
+  static List<LocalPhotoGroup> _groupAssetsInternal(List<AssetEntity> assets) {
     final Map<String, List<AssetEntity>> grouped = {};
     final DateFormat formatter = DateFormat('yyyy-MM-dd');
     final now = DateTime.now();
@@ -129,7 +137,6 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     final yesterday = today.subtract(const Duration(days: 1));
 
     for (final asset in assets) {
-      // Use modified date for grouping and sorting as it reflects downloads/saves better
       final date = asset.modifiedDateTime;
       final assetDay = DateTime(date.year, date.month, date.day);
       String title;
@@ -147,7 +154,6 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
     final List<LocalPhotoGroup> groups = grouped.entries.map((entry) {
       final groupAssets = entry.value;
-      // Sort assets within group by modified date descending (newest first)
       groupAssets.sort((a, b) => b.modifiedDateTime.compareTo(a.modifiedDateTime));
       
       final groupDate = groupAssets.first.modifiedDateTime;
@@ -159,7 +165,6 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     }).toList();
 
     groups.sort((a, b) => b.date.compareTo(a.date));
-    
     return groups;
   }
 
