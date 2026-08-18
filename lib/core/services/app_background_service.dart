@@ -68,10 +68,7 @@ Future<void> onStart(ServiceInstance service) async {
     final dio = Dio();
     if (kDebugMode) {
       dio.interceptors.add(
-        PrettyDioLogger(
-          requestHeader: true,
-          requestBody: true,
-        ),
+        PrettyDioLogger(requestHeader: true, requestBody: true),
       );
     }
     final config = AppConfig();
@@ -90,6 +87,7 @@ Future<void> onStart(ServiceInstance service) async {
     var isRunning = true;
     var isPaused = false;
     final activeUploads = <String, CancelToken>{};
+    var lastQueueTotal = 0;
 
     service.on('stopService').listen((event) async {
       isRunning = false;
@@ -147,7 +145,9 @@ Future<void> onStart(ServiceInstance service) async {
         limit: AppBackgroundService.maxConcurrentUploads - activeUploads.length,
       );
 
-      if (pendingBackup.isEmpty && manualTasks.isEmpty && activeUploads.isEmpty) {
+      if (pendingBackup.isEmpty &&
+          manualTasks.isEmpty &&
+          activeUploads.isEmpty) {
         await _updateOverallNotification(
           service,
           backupLocalDataSource,
@@ -197,10 +197,8 @@ Future<void> onStart(ServiceInstance service) async {
 
     // Listen for immediate backup requests
     service.on('enqueue').listen((event) {
-      runProcessingCycle();
+      unawaited(runProcessingCycle());
     });
-
-    var lastQueueTotal = 0;
 
     Timer.periodic(const Duration(seconds: 10), (timer) async {
       if (!isRunning) {
@@ -231,8 +229,9 @@ Future<void> _scanAndEnqueueBackup({
     final syncedIdsSet = syncedIds.toSet();
 
     final allInQueue = await localDataSource.getAll();
-    final allInQueueIds =
-        allInQueue.map((e) => e['local_asset_id']! as String).toSet();
+    final allInQueueIds = allInQueue
+        .map((e) => e['local_asset_id']! as String)
+        .toSet();
     final manuallyRemovedIds = allInQueue
         .where((e) => e['status'] == 'manually_removed')
         .map((e) => e['local_asset_id']! as String)
@@ -265,10 +264,11 @@ Future<void> _startBackupUpload({
   activeUploads[assetId] = cancelToken;
 
   await localDataSource.updateStatus(assetId, 'uploading', progress: 0);
-  service.invoke(
-    'status_update',
-    {'assetId': assetId, 'status': 'uploading', 'progress': 0},
-  );
+  service.invoke('status_update', {
+    'assetId': assetId,
+    'status': 'uploading',
+    'progress': 0,
+  });
 
   try {
     final asset = await AssetEntity.fromId(assetId);
@@ -281,21 +281,26 @@ Future<void> _startBackupUpload({
       file,
       cancelToken: cancelToken,
       onProgress: (progress) async {
-        await localDataSource.updateStatus(assetId, 'uploading', progress: progress);
-        service.invoke(
-          'status_update',
-          {'assetId': assetId, 'status': 'uploading', 'progress': progress},
+        await localDataSource.updateStatus(
+          assetId,
+          'uploading',
+          progress: progress,
         );
+        service.invoke('status_update', {
+          'assetId': assetId,
+          'status': 'uploading',
+          'progress': progress,
+        });
       },
     );
 
     await result.fold(
       (failure) async {
         await localDataSource.updateStatus(assetId, 'failed');
-        service.invoke(
-          'status_update',
-          {'assetId': assetId, 'status': 'failed'},
-        );
+        service.invoke('status_update', {
+          'assetId': assetId,
+          'status': 'failed',
+        });
       },
       (success) async {
         final remoteKey = S3PhotoKeyGenerator().generateKey(file.path);
@@ -304,10 +309,10 @@ Future<void> _startBackupUpload({
           'synced',
           remoteKey: remoteKey,
         );
-        service.invoke(
-          'status_update',
-          {'assetId': assetId, 'status': 'synced'},
-        );
+        service.invoke('status_update', {
+          'assetId': assetId,
+          'status': 'synced',
+        });
       },
     );
   } catch (e) {
@@ -352,10 +357,11 @@ Future<void> _startManualUpload({
         where: 'id = ?',
         whereArgs: [taskId],
       );
-      service.invoke(
-        'update',
-        {'id': taskId, 'progress': progress, 'status': 'uploading'},
-      );
+      service.invoke('update', {
+        'id': taskId,
+        'progress': progress,
+        'status': 'uploading',
+      });
     },
   );
 
@@ -426,9 +432,11 @@ Future<void> _updateOverallNotification(
     await service.setAsForegroundService();
   }
 
-  final currentNum = (lastQueueTotal - itemsLeft + 1).clamp(1, lastQueueTotal);
-  final title =
-      isPaused ? 'Backup Paused' : 'Backing up... ($currentNum/$lastQueueTotal)';
+  final total = lastQueueTotal > 0 ? lastQueueTotal : itemsLeft;
+  final currentNum = (total - itemsLeft + 1).clamp(1, total);
+  final title = isPaused
+      ? 'Backup Paused'
+      : 'Backing up... ($currentNum/$total)';
 
   if (service is AndroidServiceInstance) {
     await service.setForegroundNotificationInfo(
@@ -440,7 +448,7 @@ Future<void> _updateOverallNotification(
   await NotificationService.showUploadProgress(
     id: AppBackgroundService.notificationId,
     title: title,
-    progress: (currentNum / lastQueueTotal * 100).toInt(),
+    progress: (currentNum / total * 100).toInt(),
     total: 100,
     isPaused: isPaused,
   );
