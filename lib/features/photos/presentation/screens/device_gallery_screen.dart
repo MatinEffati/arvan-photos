@@ -4,7 +4,7 @@ import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/bac
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_state.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/backup_settings_screen.dart';
-import 'package:arvan_photos/features/photos/presentation/widgets/backup_banner.dart';
+import 'package:arvan_photos/features/photos/presentation/screens/photos_view_stub_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/date_section_header.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/local_photo_grid_item.dart';
 import 'package:flutter/material.dart';
@@ -19,22 +19,12 @@ class DeviceGalleryScreen extends StatefulWidget {
 
 class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
   final ScrollController _scrollController = ScrollController();
-  bool _isScrolled = false;
 
   @override
   void initState() {
     super.initState();
     context.read<DeviceGalleryBloc>().add(const DeviceGalleryRequested());
     context.read<BackupStatusBloc>().add(BackupStatusStarted());
-    _scrollController.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    if (_scrollController.offset > 50 && !_isScrolled) {
-      setState(() => _isScrolled = true);
-    } else if (_scrollController.offset <= 50 && _isScrolled) {
-      setState(() => _isScrolled = false);
-    }
   }
 
   @override
@@ -129,6 +119,16 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
       ),
       actions: [
         IconButton(
+          icon: const Icon(Icons.grid_view, color: AppColors.grey700),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const PhotosViewStubScreen()),
+            );
+          },
+          tooltip: 'Photos view',
+        ),
+        IconButton(
           icon: const Icon(Icons.settings_outlined),
           onPressed: () {
             Navigator.push(
@@ -165,9 +165,6 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> {
             return CustomScrollView(
               controller: _scrollController,
               slivers: [
-                SliverToBoxAdapter(
-                  child: BackupBanner(state: state),
-                ),
                 ...state.groups.expand((group) {
                   final groupIds = group.assets.map((a) => a.id).toSet();
                   final isGroupSelected =

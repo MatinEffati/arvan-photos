@@ -2,14 +2,20 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
-  static const int version = 4;
+  static const int version = 6;
   static const String name = 'arvan_photos.db';
 
+  static Database? _database;
+
   static Future<Database> open() async {
+    if (_database != null && _database!.isOpen) {
+      return _database!;
+    }
+
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, name);
 
-    return openDatabase(
+    _database = await openDatabase(
       path,
       version: version,
       onCreate: (db, version) async {
@@ -22,18 +28,21 @@ class AppDatabase {
           await _createUploadTasksTable(db);
         }
         if (oldVersion < 3) {
-          await db.execute('ALTER TABLE upload_tasks ADD COLUMN local_asset_id TEXT');
+          try {
+            await db.execute('ALTER TABLE upload_tasks ADD COLUMN local_asset_id TEXT');
+          } catch (_) {}
         }
-        if (oldVersion < 4) {
+        if (oldVersion < 6) {
           await _createBackupQueueTable(db);
         }
       },
     );
+    return _database!;
   }
 
   static Future<void> _createSyncRegistryTable(Database db) async {
     await db.execute('''
-      CREATE TABLE sync_registry (
+      CREATE TABLE IF NOT EXISTS sync_registry (
         local_asset_id TEXT PRIMARY KEY,
         remote_key TEXT,
         status TEXT NOT NULL,
@@ -44,7 +53,7 @@ class AppDatabase {
 
   static Future<void> _createUploadTasksTable(Database db) async {
     await db.execute('''
-      CREATE TABLE upload_tasks (
+      CREATE TABLE IF NOT EXISTS upload_tasks (
         id TEXT PRIMARY KEY,
         file_path TEXT NOT NULL,
         progress REAL NOT NULL,
@@ -56,15 +65,17 @@ class AppDatabase {
   }
 
   static Future<void> _createBackupQueueTable(Database db) async {
-    await db.execute('''
-      CREATE TABLE backup_queue (
-        local_asset_id TEXT PRIMARY KEY,
-        remote_key TEXT,
-        status TEXT NOT NULL,
-        progress REAL DEFAULT 0,
-        queued_at TEXT,
-        synced_at TEXT
-      )
-    ''');
+    try {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS backup_queue (
+          local_asset_id TEXT PRIMARY KEY,
+          remote_key TEXT,
+          status TEXT NOT NULL,
+          progress REAL DEFAULT 0,
+          queued_at TEXT,
+          synced_at TEXT
+        )
+      ''');
+    } catch (_) {}
   }
 }

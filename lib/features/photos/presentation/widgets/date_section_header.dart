@@ -36,16 +36,6 @@ class DateSectionHeader extends StatelessWidget {
                 isSelected ? Icons.check_circle : Icons.circle_outlined,
                 color: isSelected ? AppColors.primary : AppColors.grey500,
               ),
-            )
-          else
-            IconButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(builder: (_) => const PhotosViewStubScreen()),
-                );
-              },
-              icon: const Icon(Icons.more_vert, color: AppColors.grey500),
             ),
         ],
       ),

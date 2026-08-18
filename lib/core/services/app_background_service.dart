@@ -13,7 +13,6 @@ import 'package:arvan_photos/features/photos/data/repositories/photo_repository_
 import 'package:arvan_photos/features/photos/domain/entities/upload_task.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,121 +54,127 @@ class AppBackgroundService {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  DartPluginRegistrant.ensureInitialized();
-
-  if (service is AndroidServiceInstance) {
-    service.setAsForegroundService();
-  }
-
-  await NotificationService.initialize(service);
   try {
-    await dotenv.load(fileName: 'assets/env');
-  } catch (_) {}
+    DartPluginRegistrant.ensureInitialized();
 
-  final db = await AppDatabase.open();
-  final dio = Dio();
-  final config = AppConfig();
-  final s3Client = ArvanS3Client(dio, config);
-  final remoteDataSource = PhotosRemoteDataSourceImpl(s3Client);
-  final keyGenerator = S3PhotoKeyGenerator();
-  final backupLocalDataSource = BackupLocalDataSourceImpl(db);
-  final prefs = await SharedPreferences.getInstance();
-  
-  final repository = PhotoRepositoryImpl(
-    remoteDataSource,
-    keyGenerator,
-    backupLocalDataSource,
-  );
-
-  bool isRunning = true;
-  bool isPaused = false;
-  final activeUploads = <String, CancelToken>{};
-  
-  service.on('stopService').listen((event) {
-    isRunning = false;
-    for (var token in activeUploads.values) {
-      token.cancel('Service stopped');
-    }
-    service.stopSelf();
-  });
-
-  service.on('pause').listen((event) {
-    isPaused = true;
-    // For manual tasks, we might want to cancel current? 
-    // But for simplicity let's just flag it.
-    service.invoke('update', {'status': 'paused'});
-  });
-
-  service.on('resume').listen((event) {
-    isPaused = false;
-    service.invoke('update', {'status': 'resumed'});
-  });
-
-  Timer.periodic(const Duration(seconds: 10), (timer) async {
-    if (!isRunning) return;
-
-    // 1. Handle Auto-Backup scanning
-    final isAutoBackupEnabled = prefs.getBool('auto_backup_enabled') ?? false;
-    if (isAutoBackupEnabled) {
-      await _scanAndEnqueueBackup(localDataSource: backupLocalDataSource, repository: repository);
+    if (service is AndroidServiceInstance) {
+      service.setAsForegroundService();
     }
 
-    if (isPaused) return;
+    await NotificationService.initialize(service);
+    try {
+      await dotenv.load(fileName: 'assets/env');
+    } catch (_) {}
 
-    if (activeUploads.length >= AppBackgroundService.maxConcurrentUploads) {
-      return;
-    }
-
-    // 2. Fetch Pending Tasks (Prioritize manual upload_tasks, then backup_queue)
-    // For simplicity, we just process backup_queue for now as it's the new feature.
-    // Or we could fetch from both.
+    final db = await AppDatabase.open();
+    final dio = Dio();
+    final config = AppConfig();
+    final s3Client = ArvanS3Client(dio, config);
+    final remoteDataSource = PhotosRemoteDataSourceImpl(s3Client);
+    final keyGenerator = S3PhotoKeyGenerator();
+    final backupLocalDataSource = BackupLocalDataSourceImpl(db);
+    final prefs = await SharedPreferences.getInstance();
     
-    final pendingBackup = await backupLocalDataSource.getPending(
-      AppBackgroundService.maxConcurrentUploads - activeUploads.length,
+    final repository = PhotoRepositoryImpl(
+      remoteDataSource,
+      keyGenerator,
+      backupLocalDataSource,
     );
 
-    // If we have manual tasks in 'upload_tasks' table from the old system, we should also handle them.
-    final manualTasks = await db.query(
-      'upload_tasks',
-      where: 'status = ?',
-      whereArgs: [UploadStatus.pending.name],
-      limit: AppBackgroundService.maxConcurrentUploads - activeUploads.length,
-    );
+    bool isRunning = true;
+    bool isPaused = false;
+    final activeUploads = <String, CancelToken>{};
+    
+    service.on('stopService').listen((event) {
+      isRunning = false;
+      for (var token in activeUploads.values) {
+        token.cancel('Service stopped');
+      }
+      service.stopSelf();
+    });
 
-    if (pendingBackup.isEmpty && manualTasks.isEmpty && activeUploads.isEmpty) {
-      // Check if we should stop
-      return;
-    }
+    service.on('pause').listen((event) {
+      isPaused = true;
+      service.invoke('update', {'status': 'paused'});
+    });
 
-    // Process Manual Tasks
-    for (var taskMap in manualTasks) {
-      final taskId = taskMap['id'] as String;
-      if (activeUploads.containsKey(taskId)) continue;
-      _startManualUpload(
-        taskMap: taskMap,
-        service: service,
-        db: db,
-        repository: repository,
-        activeUploads: activeUploads,
-        backupLocalDataSource: backupLocalDataSource,
+    service.on('resume').listen((event) {
+      isPaused = false;
+      service.invoke('update', {'status': 'resumed'});
+    });
+
+    DateTime? lastNotificationUpdate;
+
+    Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (!isRunning) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        // 1. Handle Auto-Backup scanning
+        final isAutoBackupEnabled = prefs.getBool('auto_backup_enabled') ?? false;
+        if (isAutoBackupEnabled) {
+          await _scanAndEnqueueBackup(localDataSource: backupLocalDataSource, repository: repository);
+        }
+      } catch (e) {
+        print('BACKUP_SERVICE_ERROR (Scan): $e');
+      }
+
+      if (isPaused) return;
+
+      if (activeUploads.length >= AppBackgroundService.maxConcurrentUploads) {
+        return;
+      }
+
+      // 2. Fetch Pending Tasks
+      final pendingBackup = await backupLocalDataSource.getPending(
+        AppBackgroundService.maxConcurrentUploads - activeUploads.length,
       );
-    }
 
-    // Process Backup Tasks
-    for (final task in pendingBackup) {
-      final assetId = task['local_asset_id'] as String;
-      if (activeUploads.containsKey(assetId)) continue;
-
-      _startBackupUpload(
-        assetId: assetId,
-        service: service,
-        localDataSource: backupLocalDataSource,
-        repository: repository,
-        activeUploads: activeUploads,
-        db: db,
+      final manualTasks = await db.query(
+        'upload_tasks',
+        where: 'status = ?',
+        whereArgs: [UploadStatus.pending.name],
+        limit: AppBackgroundService.maxConcurrentUploads - activeUploads.length,
       );
-    }
-  });
+
+      if (pendingBackup.isEmpty && manualTasks.isEmpty && activeUploads.isEmpty) {
+        return;
+      }
+
+      // Process Manual Tasks
+      for (var taskMap in manualTasks) {
+        final taskId = taskMap['id'] as String;
+        if (activeUploads.containsKey(taskId)) continue;
+        _startManualUpload(
+          taskMap: taskMap,
+          service: service,
+          db: db,
+          repository: repository,
+          activeUploads: activeUploads,
+          backupLocalDataSource: backupLocalDataSource,
+        );
+      }
+
+      // Process Backup Tasks
+      for (final task in pendingBackup) {
+        final assetId = task['local_asset_id'] as String;
+        if (activeUploads.containsKey(assetId)) continue;
+
+        _startBackupUpload(
+          assetId: assetId,
+          service: service,
+          localDataSource: backupLocalDataSource,
+          repository: repository,
+          activeUploads: activeUploads,
+          db: db,
+        );
+      }
+    });
+  } catch (e) {
+    print('BACKUP_SERVICE_FATAL_ERROR: $e');
+  }
 }
 
 Future<void> _scanAndEnqueueBackup({
@@ -300,30 +305,36 @@ Future<void> _startManualUpload({
 
 Future<void> _updateOverallNotification(ServiceInstance service, BackupLocalDataSource localDataSource) async {
   final all = await localDataSource.getAll();
-  final total = all.length;
-  if (total == 0) return;
+  if (all.isEmpty) return;
 
-  final synced = all.where((e) => e['status'] == 'synced').length;
-  final uploading = all.where((e) => e['status'] == 'uploading');
+  final uploading = all.where((e) => e['status'] == 'uploading').length;
+  final queued = all.where((e) => e['status'] == 'queued').length;
   
-  double currentProgress = 0.0;
-  for (var task in uploading) {
-    currentProgress += (task['progress'] as num? ?? 0.0).toDouble();
+  final itemsLeft = queued + uploading;
+  
+  if (itemsLeft == 0) {
+     await NotificationService.showUploadProgress(
+        id: AppBackgroundService.notificationId,
+        title: 'Backup Complete',
+        progress: 100,
+        total: 100,
+     );
+     return;
   }
 
-  final overallProgress = (synced + currentProgress) / total;
+  final title = 'Backing up... ($itemsLeft items left)';
 
   if (service is AndroidServiceInstance) {
     service.setForegroundNotificationInfo(
-      title: 'Backing up... ($synced/$total)',
-      content: 'Overall Progress: ${(overallProgress * 100).toInt()}%',
+      title: title,
+      content: 'Overall Progress: Processing queue...',
     );
   }
 
   await NotificationService.showUploadProgress(
     id: AppBackgroundService.notificationId,
-    title: 'Backing up... ($synced/$total)',
-    progress: (overallProgress * 100).toInt(),
+    title: title,
+    progress: 0,
     total: 100,
   );
 }

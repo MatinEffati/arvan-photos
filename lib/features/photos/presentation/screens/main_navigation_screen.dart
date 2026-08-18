@@ -1,7 +1,6 @@
 import 'package:arvan_photos/core/presentation/widgets/empty_state_screen.dart';
 import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/device_gallery_screen.dart';
-import 'package:arvan_photos/features/photos/presentation/screens/photos_screen.dart';
 import 'package:flutter/material.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -18,9 +17,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const DeviceGalleryScreen(),
     const EmptyStateScreen(
       title: 'Search',
-      message: 'Search functionality is not implemented yet.',
+      message: 'Search functionality will be implemented later.',
     ),
-    const PhotosScreen(),
+    const EmptyStateScreen(
+      title: 'Library',
+      message: 'Library functionality will be implemented later.',
+    ),
   ];
 
   @override
@@ -50,9 +52,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             label: 'Search',
           ),
           NavigationDestination(
-            icon: Icon(Icons.library_books_outlined),
-            selectedIcon: Icon(Icons.library_books, color: AppColors.primary),
-            label: 'Library',
+            icon: Icon(Icons.collections_outlined),
+            selectedIcon: Icon(Icons.collections, color: AppColors.primary),
+            label: 'Collections',
           ),
         ],
       ),
