@@ -1,5 +1,5 @@
 import 'package:arvan_photos/features/cloud/data/datasources/cloud_remote_data_source.dart';
-import 'package:arvan_photos/features/cloud/domain/entities/cloud_photo.dart';
+import 'package:arvan_photos/features/cloud/domain/entities/paginated_cloud_photos.dart';
 import 'package:arvan_photos/features/cloud/domain/repositories/cloud_repository.dart';
 import 'package:injectable/injectable.dart';
 
@@ -9,8 +9,8 @@ class CloudRepositoryImpl implements CloudRepository {
   final CloudRemoteDataSource _remoteDataSource;
 
   @override
-  Future<List<CloudPhoto>> getPhotos() {
-    return _remoteDataSource.getPhotos();
+  Future<PaginatedCloudPhotos> getPhotos({String? continuationToken}) {
+    return _remoteDataSource.getPhotos(continuationToken: continuationToken);
   }
 
   @override

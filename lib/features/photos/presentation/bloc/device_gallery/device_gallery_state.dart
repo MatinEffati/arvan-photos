@@ -20,6 +20,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
     this.notBackedUpCount = 0,
     this.notBackedUpThumbnails = const [],
     this.cloudCount = 0,
+    this.gridColumns = 3,
     this.errorMessage,
   });
 
@@ -30,6 +31,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
   final int notBackedUpCount;
   final List<AssetEntity> notBackedUpThumbnails;
   final int cloudCount;
+  final int gridColumns;
   final String? errorMessage;
 
   @override
@@ -41,6 +43,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
         notBackedUpCount,
         notBackedUpThumbnails,
         cloudCount,
+        gridColumns,
         errorMessage,
       ];
 
@@ -52,6 +55,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
     int? notBackedUpCount,
     List<AssetEntity>? notBackedUpThumbnails,
     int? cloudCount,
+    int? gridColumns,
     String? errorMessage,
   }) {
     return DeviceGalleryLoadSuccess(
@@ -63,6 +67,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
       notBackedUpThumbnails:
           notBackedUpThumbnails ?? this.notBackedUpThumbnails,
       cloudCount: cloudCount ?? this.cloudCount,
+      gridColumns: gridColumns ?? this.gridColumns,
       errorMessage: errorMessage,
     );
   }
@@ -84,6 +89,7 @@ class DeviceGalleryBackupInProgress extends DeviceGalleryLoadSuccess {
     required super.isAutoBackupEnabled,
     required super.notBackedUpCount,
     required super.notBackedUpThumbnails,
+    super.gridColumns,
   });
 }
 
@@ -95,6 +101,7 @@ class DeviceGalleryBackupSuccess extends DeviceGalleryLoadSuccess {
     required super.isAutoBackupEnabled,
     required super.notBackedUpCount,
     required super.notBackedUpThumbnails,
+    super.gridColumns,
   });
 }
 
@@ -106,5 +113,6 @@ class DeviceGalleryActionInProgress extends DeviceGalleryLoadSuccess {
     required super.isAutoBackupEnabled,
     required super.notBackedUpCount,
     required super.notBackedUpThumbnails,
+    super.gridColumns,
   });
 }

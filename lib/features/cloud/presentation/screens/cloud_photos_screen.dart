@@ -18,21 +18,59 @@ class CloudPhotosScreen extends StatefulWidget {
 }
 
 class _CloudPhotosScreenState extends State<CloudPhotosScreen> {
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
-    context.read<CloudBloc>().add(CloudPhotosRequested());
+    context.read<CloudBloc>().add(const CloudPhotosRequested());
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isBottom) {
+      context.read<CloudBloc>().add(CloudLoadMoreRequested());
+    }
+  }
+
+  bool get _isBottom {
+    if (!_scrollController.hasClients) return false;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.offset;
+    return currentScroll >= (maxScroll * 0.9);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cloud Storage'),
+        centerTitle: false,
+        title: BlocBuilder<CloudBloc, CloudState>(
+          builder: (context, state) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Cloud Storage', style: TextStyle(fontWeight: FontWeight.bold)),
+                if (state is CloudLoadSuccess)
+                  Text(
+                    '${state.photos.length} items',
+                    style: const TextStyle(fontSize: 12, color: AppColors.grey700),
+                  ),
+              ],
+            );
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => context.read<CloudBloc>().add(CloudPhotosRequested()),
+            onPressed: () => context.read<CloudBloc>().add(const CloudPhotosRequested(isRefresh: true)),
           ),
         ],
       ),
@@ -44,7 +82,7 @@ class _CloudPhotosScreenState extends State<CloudPhotosScreen> {
             if (state.photos.isEmpty) {
               return _buildEmptyState();
             }
-            return _buildPhotoGrid(state.photos);
+            return _buildPhotoGrid(state.photos, state.hasReachedMax);
           } else if (state is CloudLoadFailure) {
             return _buildErrorState(state.message);
           }
@@ -79,7 +117,7 @@ class _CloudPhotosScreenState extends State<CloudPhotosScreen> {
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.m),
             ElevatedButton(
-              onPressed: () => context.read<CloudBloc>().add(CloudPhotosRequested()),
+              onPressed: () => context.read<CloudBloc>().add(const CloudPhotosRequested()),
               child: const Text('Retry'),
             ),
           ],
@@ -88,7 +126,7 @@ class _CloudPhotosScreenState extends State<CloudPhotosScreen> {
     );
   }
 
-  Widget _buildPhotoGrid(List<CloudPhoto> photos) {
+  Widget _buildPhotoGrid(List<CloudPhoto> photos, bool hasReachedMax) {
     // Group photos by date
     final groupedPhotos = <String, List<CloudPhoto>>{};
     for (final photo in photos) {
@@ -100,9 +138,10 @@ class _CloudPhotosScreenState extends State<CloudPhotosScreen> {
 
     return RefreshIndicator(
       onRefresh: () async {
-        context.read<CloudBloc>().add(CloudPhotosRequested());
+        context.read<CloudBloc>().add(const CloudPhotosRequested(isRefresh: true));
       },
       child: CustomScrollView(
+        controller: _scrollController,
         slivers: [
           ...sortedDates.expand((date) {
             final datePhotos = groupedPhotos[date]!;
@@ -111,22 +150,23 @@ class _CloudPhotosScreenState extends State<CloudPhotosScreen> {
             return [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.m),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.m, AppSpacing.m, AppSpacing.m, AppSpacing.s),
                   child: Text(
                     displayDate,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: AppColors.grey700,
                         ),
                   ),
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s),
+                padding: const EdgeInsets.symmetric(horizontal: 2),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    crossAxisSpacing: AppSpacing.s,
-                    mainAxisSpacing: AppSpacing.s,
+                    crossAxisSpacing: 2,
+                    mainAxisSpacing: 2,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -151,6 +191,13 @@ class _CloudPhotosScreenState extends State<CloudPhotosScreen> {
               ),
             ];
           }).toList(),
+          if (!hasReachedMax)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.m),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),

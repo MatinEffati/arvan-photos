@@ -1,4 +1,5 @@
 import 'package:arvan_photos/core/theme/app_colors.dart';
+import 'package:arvan_photos/core/theme/app_spacing.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,72 +23,24 @@ class BackupSettingsScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            leading: const BackButton(),
+            title: const Text('Backup Settings'),
+            centerTitle: true,
           ),
           body: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Text(
-                    isAutoBackupEnabled ? 'Backup is on' : 'Backup is off',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ),
-                ListTile(
-                  title: const Text('Back up photos & videos on this device automatically'),
-                  trailing: Switch(
-                    value: isAutoBackupEnabled,
-                    onChanged: (value) {
-                      context
-                          .read<DeviceGalleryBloc>()
-                          .add(DeviceGalleryAutoBackupToggled(value));
-                    },
-                    activeColor: AppColors.primary,
-                  ),
-                ),
-                const Divider(),
-                ListTile(
-                  title: const Text('Backup account'),
-                  subtitle: const Text('arvan_photos_user@example.com'),
-                  enabled: isAutoBackupEnabled,
-                ),
-                ListTile(
-                  title: const Text('Quality'),
-                  trailing: const Text('Original', style: TextStyle(color: Colors.grey)),
-                  subtitle: const Text('Full resolution'),
-                  enabled: isAutoBackupEnabled,
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.cloud_done, color: Colors.blue),
-                  title: const Text('Storage used on ArvanCloud'),
-                  subtitle: Text('${state.cloudCount} photos backed up'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.refresh, size: 20),
-                    onPressed: () {
-                      context.read<DeviceGalleryBloc>().add(const DeviceGallerySettingsRequested());
-                    },
-                  ),
-                ),
-                const Divider(),
+                _buildHeader(context, isAutoBackupEnabled),
+                _buildToggleSection(context, isAutoBackupEnabled),
+                const Divider(height: 1, color: AppColors.grey200),
+                _buildAccountSection(isAutoBackupEnabled),
+                _buildQualitySection(isAutoBackupEnabled),
+                const Divider(height: 1, color: AppColors.grey200),
                 if (!isAutoBackupEnabled && state.notBackedUpCount > 0) ...[
-                  _buildBackupStatusSection(context, state),
+                  _buildNotBackedUpSection(context, state),
                 ],
-                const SizedBox(height: 24),
-                _buildInfoCard(
-                  context,
-                  Icons.cloud_done_outlined,
-                  'The photos and videos you back up are kept safe and secure. Learn more',
-                ),
-                _buildInfoCard(
-                  context,
-                  Icons.help_outline,
-                  "Can't find your photo or video?",
-                ),
+                const SizedBox(height: AppSpacing.l),
+                _buildSafetyInfo(context),
               ],
             ),
           ),
@@ -96,46 +49,115 @@ class BackupSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBackupStatusSection(BuildContext context, DeviceGalleryLoadSuccess state) {
+  Widget _buildHeader(BuildContext context, bool isAutoBackupEnabled) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.l, AppSpacing.l, AppSpacing.l, AppSpacing.m),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isAutoBackupEnabled ? 'Backup is active' : 'Backup is disabled',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isAutoBackupEnabled ? AppColors.primary : AppColors.grey700,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            isAutoBackupEnabled 
+                ? 'Your photos are being synced to ArvanCloud' 
+                : 'Turn on backup to keep your photos safe in the cloud',
+            style: const TextStyle(color: AppColors.grey700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleSection(BuildContext context, bool isAutoBackupEnabled) {
+    return SwitchListTile(
+      title: const Text('Automatic Backup', style: TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: const Text('Back up photos & videos from this device'),
+      value: isAutoBackupEnabled,
+      onChanged: (value) {
+        context.read<DeviceGalleryBloc>().add(DeviceGalleryAutoBackupToggled(value));
+      },
+      activeColor: AppColors.primary,
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.s),
+    );
+  }
+
+  Widget _buildAccountSection(bool isAutoBackupEnabled) {
+    return ListTile(
+      leading: const CircleAvatar(
+        radius: 18,
+        backgroundColor: AppColors.grey200,
+        child: Icon(Icons.person, color: AppColors.grey700, size: 20),
+      ),
+      title: const Text('Backup Account'),
+      subtitle: const Text('arvan_photos_user@example.com'),
+      enabled: isAutoBackupEnabled,
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.s),
+    );
+  }
+
+  Widget _buildQualitySection(bool isAutoBackupEnabled) {
+    return ListTile(
+      leading: const Icon(Icons.high_quality_outlined, color: AppColors.grey700),
+      title: const Text('Upload Quality'),
+      subtitle: const Text('Original quality • Full resolution'),
+      trailing: const Icon(Icons.chevron_right, color: AppColors.grey500),
+      enabled: isAutoBackupEnabled,
+      onTap: () {},
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+    );
+  }
+
+  Widget _buildNotBackedUpSection(BuildContext context, DeviceGalleryLoadSuccess state) {
+    return Container(
+      margin: const EdgeInsets.all(AppSpacing.m),
+      padding: const EdgeInsets.all(AppSpacing.m),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.1)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.error, color: Colors.red, size: 24),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Backup is off', style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text('${state.notBackedUpCount} items not backed up'),
-                ],
+              const Icon(Icons.cloud_off_outlined, color: AppColors.error, size: 24),
+              const SizedBox(width: AppSpacing.s),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Action required', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.error)),
+                    Text('${state.notBackedUpCount} items waiting to be backed up'),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.m),
           SizedBox(
-            height: 80,
+            height: 70,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: state.notBackedUpThumbnails.length + 1,
+              itemCount: state.notBackedUpThumbnails.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-                if (index == state.notBackedUpThumbnails.length) {
-                  return _buildArrowButton(context);
-                }
                 final asset = state.notBackedUpThumbnails[index];
                 return ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: SizedBox(
-                    width: 80,
-                    height: 80,
+                    width: 70,
+                    height: 70,
                     child: AssetEntityImage(
                       asset,
                       isOriginal: false,
-                      thumbnailSize: const ThumbnailSize.square(200),
+                      thumbnailSize: const ThumbnailSize.square(150),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -148,44 +170,38 @@ class BackupSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildArrowButton(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pop(context);
-        // In real app, we might enter selection mode or scroll to top
-      },
-      child: Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: AppColors.grey200,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(Icons.arrow_forward, color: Colors.white),
+  Widget _buildSafetyInfo(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+      child: Column(
+        children: [
+          _buildInfoItem(
+            Icons.security_outlined,
+            'The photos and videos you back up are private and encrypted in ArvanCloud storage.',
+          ),
+          const SizedBox(height: AppSpacing.m),
+          _buildInfoItem(
+            Icons.help_outline,
+            'Need help? Visit the Arvan Photos Support Center.',
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildInfoCard(BuildContext context, IconData icon, String text) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.grey100,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primary, size: 24),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 14),
-            ),
+  Widget _buildInfoItem(IconData icon, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.grey500, size: 20),
+        const SizedBox(width: AppSpacing.m),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 13, color: AppColors.grey700),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

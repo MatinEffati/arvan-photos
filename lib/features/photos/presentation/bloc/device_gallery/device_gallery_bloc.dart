@@ -34,6 +34,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     on<DeviceGalleryDeleteFromCloudRequested>(_onDeleteFromCloudRequested);
     on<DeviceGalleryAutoBackupToggled>(_onAutoBackupToggled);
     on<DeviceGallerySettingsRequested>(_onSettingsRequested);
+    on<DeviceGalleryGridColumnsChanged>(_onGridColumnsChanged);
 
     _statusSubscription = _repository.watchBackupStatus().listen((event) {
       final status = event['status'] as String?;
@@ -60,6 +61,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
   Timer? _debounceTimer;
 
   static const String _autoBackupKey = 'auto_backup_enabled';
+  static const String _gridColumnsKey = 'grid_columns';
 
   void _onGalleryChanged(MethodCall call) {
     add(const DeviceGalleryRequested());
@@ -89,6 +91,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       final groups = await _groupAssetsAsync(assets);
       
       final isAutoBackupEnabled = _prefs.getBool(_autoBackupKey) ?? false;
+      final gridColumns = _prefs.getInt(_gridColumnsKey) ?? 3;
       final syncedIds = await _backupLocalDataSource.getSyncedIds();
       final syncedIdsSet = syncedIds.toSet();
       
@@ -97,16 +100,14 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
       final notSyncedAssets = assets.where((a) => !syncedIdsSet.contains(a.id)).toList();
       
-      final cloudCountResult = await _repository.getCloudCount();
-      final cloudCount = cloudCountResult.fold((_) => 0, (count) => count);
-      
       emit(DeviceGalleryLoadSuccess(
         groups: groups,
         selectedAssetIds: const {},
         isAutoBackupEnabled: isAutoBackupEnabled,
         notBackedUpCount: notSyncedAssets.length,
         notBackedUpThumbnails: notSyncedAssets.take(4).toList(),
-        cloudCount: cloudCount,
+        cloudCount: 0,
+        gridColumns: gridColumns,
       ));
 
       if (isAutoBackupEnabled) {
@@ -335,14 +336,22 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       final allAssets = currentState.groups.expand((g) => g.assets).toList();
       final notSyncedAssets = allAssets.where((a) => !syncedIdsSet.contains(a.id)).toList();
 
-      final cloudCountResult = await _repository.getCloudCount();
-      final cloudCount = cloudCountResult.fold((_) => currentState.cloudCount, (count) => count);
-
       emit(currentState.copyWith(
         notBackedUpCount: notSyncedAssets.length,
         notBackedUpThumbnails: notSyncedAssets.take(4).toList(),
-        cloudCount: cloudCount,
+        cloudCount: 0,
       ));
+    }
+  }
+
+  Future<void> _onGridColumnsChanged(
+    DeviceGalleryGridColumnsChanged event,
+    Emitter<DeviceGalleryState> emit,
+  ) async {
+    if (state is DeviceGalleryLoadSuccess) {
+      final currentState = state as DeviceGalleryLoadSuccess;
+      await _prefs.setInt(_gridColumnsKey, event.columns);
+      emit(currentState.copyWith(gridColumns: event.columns));
     }
   }
 }

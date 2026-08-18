@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 class CloudBloc extends Bloc<CloudEvent, CloudState> {
   CloudBloc(this._getCloudPhotos) : super(CloudInitial()) {
     on<CloudPhotosRequested>(_onPhotosRequested);
+    on<CloudLoadMoreRequested>(_onLoadMoreRequested);
   }
 
   final GetCloudPhotos _getCloudPhotos;
@@ -16,12 +17,46 @@ class CloudBloc extends Bloc<CloudEvent, CloudState> {
     CloudPhotosRequested event,
     Emitter<CloudState> emit,
   ) async {
-    emit(CloudLoadInProgress());
+    if (event.isRefresh) {
+      emit(CloudLoadInProgress());
+    } else {
+      // If already loaded and not refresh, don't show full loading
+      if (state is CloudLoadSuccess) return;
+      emit(CloudLoadInProgress());
+    }
+    
     try {
-      final photos = await _getCloudPhotos();
-      emit(CloudLoadSuccess(photos));
+      final paginatedPhotos = await _getCloudPhotos();
+      emit(CloudLoadSuccess(
+        photos: paginatedPhotos.photos,
+        hasReachedMax: paginatedPhotos.nextContinuationToken == null,
+        nextContinuationToken: paginatedPhotos.nextContinuationToken,
+      ));
     } catch (e) {
       emit(CloudLoadFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onLoadMoreRequested(
+    CloudLoadMoreRequested event,
+    Emitter<CloudState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! CloudLoadSuccess || currentState.hasReachedMax) return;
+
+    try {
+      final paginatedPhotos = await _getCloudPhotos(
+        continuationToken: currentState.nextContinuationToken,
+      );
+      
+      emit(CloudLoadSuccess(
+        photos: List.of(currentState.photos)..addAll(paginatedPhotos.photos),
+        hasReachedMax: paginatedPhotos.nextContinuationToken == null,
+        nextContinuationToken: paginatedPhotos.nextContinuationToken,
+      ));
+    } catch (e) {
+      // Handle error without losing current photos if needed, 
+      // but for simplicity we'll just keep current state
     }
   }
 }

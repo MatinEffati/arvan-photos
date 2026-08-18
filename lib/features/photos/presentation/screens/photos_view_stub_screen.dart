@@ -1,5 +1,8 @@
 import 'package:arvan_photos/core/theme/app_colors.dart';
+import 'package:arvan_photos/core/theme/app_spacing.dart';
+import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class PhotosViewStubScreen extends StatefulWidget {
   const PhotosViewStubScreen({super.key});
@@ -9,69 +12,115 @@ class PhotosViewStubScreen extends StatefulWidget {
 }
 
 class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
-  String _selectedLayout = 'Day';
   bool _stackSimilar = true;
   bool _showDates = true;
   bool _showShimmer = true;
 
+  String _columnsToLayout(int columns) {
+    if (columns == 2) return 'Comfortable';
+    if (columns == 5) return 'Month';
+    return 'Day';
+  }
+
+  int _layoutToColumns(String layout) {
+    if (layout == 'Comfortable') return 2;
+    if (layout == 'Month') return 5;
+    return 3;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: const BackButton(),
-        title: const Text('Photos view'),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('Layout', style: TextStyle(fontWeight: FontWeight.bold)),
+    return BlocBuilder<DeviceGalleryBloc, DeviceGalleryState>(
+      builder: (context, state) {
+        final currentLayout = state is DeviceGalleryLoadSuccess 
+            ? _columnsToLayout(state.gridColumns) 
+            : 'Day';
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('View Options'),
+            centerTitle: true,
           ),
-          SizedBox(
-            width: double.infinity,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'Comfortable', label: Text('Comfortable')),
-                  ButtonSegment(value: 'Day', label: Text('Day')),
-                  ButtonSegment(value: 'Month', label: Text('Month')),
-                ],
-                selected: {_selectedLayout},
-                onSelectionChanged: (value) {
-                  setState(() => _selectedLayout = value.first);
-                  if (_selectedLayout != 'Day') {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Only Day layout is supported in this version')),
-                    );
-                  }
-                },
+          body: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader('Grid Layout'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l, vertical: AppSpacing.s),
+                  child: SegmentedButton<String>(
+                    style: SegmentedButton.styleFrom(
+                      selectedBackgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      selectedForegroundColor: AppColors.primary,
+                    ),
+                    segments: const [
+                      ButtonSegment(value: 'Comfortable', label: Text('Comfortable')),
+                      ButtonSegment(value: 'Day', label: Text('Day')),
+                      ButtonSegment(value: 'Month', label: Text('Month')),
+                    ],
+                    selected: {currentLayout},
+                    onSelectionChanged: (value) {
+                      final selectedLayout = value.first;
+                      final columns = _layoutToColumns(selectedLayout);
+                      context.read<DeviceGalleryBloc>().add(DeviceGalleryGridColumnsChanged(columns));
+                    },
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.m),
+                _buildSectionHeader('Smart Features'),
+            SwitchListTile(
+              title: const Text('Group similar photos'),
+              subtitle: const Text('Use AI to stack bursts and duplicates'),
+              value: _stackSimilar,
+              onChanged: (value) => setState(() => _stackSimilar = value),
+              activeColor: AppColors.primary,
+              contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+            ),
+            const Divider(height: 1, indent: AppSpacing.l, color: AppColors.grey200),
+            SwitchListTile(
+              title: const Text('Show timeline dates'),
+              subtitle: const Text('Display date headers in the photo grid'),
+              value: _showDates,
+              onChanged: (value) => setState(() => _showDates = value),
+              activeColor: AppColors.primary,
+              contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+            ),
+            const SizedBox(height: AppSpacing.m),
+            _buildSectionHeader('Appearance'),
+            SwitchListTile(
+              title: const Text('Loading Shimmer'),
+              subtitle: const Text('Show animated placeholders while loading'),
+              value: _showShimmer,
+              onChanged: (value) => setState(() => _showShimmer = value),
+              activeColor: AppColors.primary,
+              contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Center(
+              child: Text(
+                'Changes are applied immediately',
+                style: TextStyle(color: AppColors.grey500, fontSize: 12),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          SwitchListTile(
-            title: const Text('Stack similar photos'),
-            subtitle: const Text('AI-powered grouping'),
-            value: _stackSimilar,
-            onChanged: (value) => setState(() => _stackSimilar = value),
-            activeColor: AppColors.primary,
-          ),
-          SwitchListTile(
-            title: const Text('Show dates in grid'),
-            value: _showDates,
-            onChanged: (value) => setState(() => _showDates = value),
-            activeColor: AppColors.primary,
-          ),
-          SwitchListTile(
-            title: const Text('Show shimmer'),
-            subtitle: const Text('Loading placeholder animation'),
-            value: _showShimmer,
-            onChanged: (value) => setState(() => _showShimmer = value),
-            activeColor: AppColors.primary,
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  },
+);
+}
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.l, AppSpacing.l, AppSpacing.l, AppSpacing.s),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.2,
+          color: AppColors.primary,
+        ),
       ),
     );
   }

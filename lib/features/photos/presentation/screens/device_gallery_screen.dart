@@ -256,8 +256,8 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 2),
                   sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: state.gridColumns,
                       crossAxisSpacing: 2,
                       mainAxisSpacing: 2,
                     ),

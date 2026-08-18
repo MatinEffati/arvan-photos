@@ -54,3 +54,11 @@ class DeviceGalleryAutoBackupToggled extends DeviceGalleryEvent {
 class DeviceGallerySettingsRequested extends DeviceGalleryEvent {
   const DeviceGallerySettingsRequested();
 }
+
+class DeviceGalleryGridColumnsChanged extends DeviceGalleryEvent {
+  const DeviceGalleryGridColumnsChanged(this.columns);
+  final int columns;
+
+  @override
+  List<Object?> get props => [columns];
+}
