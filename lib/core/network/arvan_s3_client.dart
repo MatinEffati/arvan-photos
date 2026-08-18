@@ -115,18 +115,39 @@ class ArvanS3Client {
 
   Future<void> deleteObject(String key) async {
     try {
-      final uri = Uri.parse('$baseUrl/$key');
-      final request = AWSHttpRequest(method: AWSHttpMethod.delete, uri: uri);
+      final cleanKey = key.trim().startsWith('/') ? key.trim().substring(1) : key.trim();
+      
+      // Use Uri constructor for safer path encoding
+      final baseUri = Uri.parse(baseUrl);
+      final uri = baseUri.replace(
+        path: '${baseUri.path}/$cleanKey'.replaceAll('//', '/'),
+      );
+      
+      print('S3_CLIENT: Attempting to delete key: "$cleanKey" at URI: $uri');
+
+      final request = AWSHttpRequest(
+        method: AWSHttpMethod.delete, 
+        uri: uri,
+        headers: const {
+          'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+        },
+      );
 
       final signedRequest = await _signer.sign(request, credentialScope: _scope);
 
-      await _dio.deleteUri<dynamic>(
+      final response = await _dio.deleteUri<dynamic>(
         uri,
         options: Options(
           headers: signedRequest.headers,
-          validateStatus: (status) => status != null && status < 500,
+          responseType: ResponseType.bytes,
         ),
       );
+      
+      if (response.statusCode != 204 && response.statusCode != 200) {
+        print('S3_DELETE_FAILED: Status ${response.statusCode}');
+        throw Exception('Delete failed with status ${response.statusCode}');
+      }
+      print('S3_CLIENT: Delete successful for $cleanKey');
     } catch (e) {
       print('S3_CLIENT_DELETE_ERROR: $e');
       rethrow;

@@ -11,7 +11,7 @@ class UploadPhotoUseCase {
   UploadPhotoUseCase(this.repository);
   final PhotoCommandRepository repository;
 
-  Future<Either<Failure, Unit>> call(
+  Future<Either<Failure, String>> call(
     File file, {
     void Function(double progress)? onProgress,
     CancelToken? cancelToken,

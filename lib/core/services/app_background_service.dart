@@ -302,8 +302,7 @@ Future<void> _startBackupUpload({
           'status': 'failed',
         });
       },
-      (success) async {
-        final remoteKey = S3PhotoKeyGenerator().generateKey(file.path);
+      (remoteKey) async {
         await localDataSource.updateStatus(
           assetId,
           'synced',
@@ -375,7 +374,7 @@ Future<void> _startManualUpload({
       );
       service.invoke('update', {'id': taskId, 'status': 'failure'});
     },
-    (_) async {
+    (remoteKey) async {
       await db.update(
         'upload_tasks',
         {'status': UploadStatus.success.name, 'progress': 1},
@@ -383,11 +382,10 @@ Future<void> _startManualUpload({
         whereArgs: [taskId],
       );
       if (localAssetId != null) {
-        final key = S3PhotoKeyGenerator().generateKey(filePath);
         await backupLocalDataSource.updateStatus(
           localAssetId,
           'synced',
-          remoteKey: key,
+          remoteKey: remoteKey,
         );
       }
       service.invoke('update', {'id': taskId, 'status': 'success'});

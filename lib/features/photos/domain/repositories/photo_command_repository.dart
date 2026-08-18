@@ -5,7 +5,7 @@ import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart';
 
 abstract class PhotoCommandRepository {
-  Future<Either<Failure, Unit>> uploadPhoto(
+  Future<Either<Failure, String>> uploadPhoto(
     File file, {
     void Function(double progress)? onProgress,
     CancelToken? cancelToken,

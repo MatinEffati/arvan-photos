@@ -54,7 +54,7 @@ class PhotoRepositoryImpl
   }
 
   @override
-  Future<Either<Failure, Unit>> uploadPhoto(
+  Future<Either<Failure, String>> uploadPhoto(
     File file, {
     void Function(double progress)? onProgress,
     CancelToken? cancelToken,
@@ -72,7 +72,7 @@ class PhotoRepositoryImpl
           }
         },
       );
-      return const Right(unit);
+      return Right(key);
     } catch (e) {
       return Left(ErrorMapper.map(e));
     }
