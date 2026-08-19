@@ -6,9 +6,9 @@ import 'package:arvan_photos/core/config/app_config.dart';
 import 'package:arvan_photos/core/database/app_database.dart';
 import 'package:arvan_photos/core/network/arvan_s3_client.dart';
 import 'package:arvan_photos/core/services/notification_service.dart';
+import 'package:arvan_photos/features/cloud/data/datasources/cloud_remote_data_source.dart';
 import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart';
 import 'package:arvan_photos/features/photos/data/datasources/photo_key_generator.dart';
-import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data_source_impl.dart';
 import 'package:arvan_photos/features/photos/data/repositories/photo_repository_impl.dart';
 import 'package:arvan_photos/features/photos/domain/entities/upload_task.dart';
 import 'package:dio/dio.dart';
@@ -86,7 +86,7 @@ Future<void> onStart(ServiceInstance service) async {
     }
     final config = AppConfig();
     final s3Client = ArvanS3Client(dio, config);
-    final remoteDataSource = PhotosRemoteDataSourceImpl(s3Client);
+    final remoteDataSource = CloudRemoteDataSourceImpl(s3Client);
     final keyGenerator = S3PhotoKeyGenerator();
     final backupLocalDataSource = BackupLocalDataSourceImpl(db);
 
@@ -190,7 +190,7 @@ Future<void> onStart(ServiceInstance service) async {
       }
 
       for (final task in pendingBackup) {
-        final assetId = task['local_asset_id']! as String;
+        final assetId = task.localAssetId;
         if (activeUploads.containsKey(assetId)) continue;
 
         debugPrint('BACKUP_SERVICE: Starting backup upload for asset $assetId');
@@ -270,7 +270,7 @@ Future<void> _startBackupUpload({
 
     debugPrint('BACKUP_SERVICE: Starting Arvan S3 upload for $filePath');
     final result = await repository.uploadPhoto(
-      file,
+      filePath,
       cancelToken: cancelToken,
       onProgress: (progress) async {
         await localDataSource.updateStatus(
@@ -340,7 +340,7 @@ Future<void> _startManualUpload({
   service.invoke('update', {'id': taskId, 'status': 'uploading'});
 
   final result = await repository.uploadPhoto(
-    file,
+    filePath,
     cancelToken: cancelToken,
     onProgress: (progress) async {
       await db.update(
@@ -394,8 +394,8 @@ Future<void> _updateOverallNotification(
   bool isPaused = false,
 }) async {
   final all = await localDataSource.getAll();
-  final uploading = all.where((e) => e['status'] == 'uploading').length;
-  final queued = all.where((e) => e['status'] == 'queued').length;
+  final uploading = all.where((e) => e.status == 'uploading').length;
+  final queued = all.where((e) => e.status == 'queued' || e.status == 'failed').length;
 
   final itemsLeft = queued + uploading;
 
@@ -404,7 +404,7 @@ Future<void> _updateOverallNotification(
       await service.setAsBackgroundService();
     }
 
-    final synced = all.where((e) => e['status'] == 'synced').length;
+    final synced = all.where((e) => e.status == 'synced').length;
     if (synced > 0) {
       await NotificationService.showUploadProgress(
         id: AppBackgroundService.notificationId,

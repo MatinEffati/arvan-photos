@@ -11,6 +11,8 @@ class DeviceGalleryInitial extends DeviceGalleryState {}
 
 class DeviceGalleryLoadInProgress extends DeviceGalleryState {}
 
+import 'package:arvan_photos/features/photos/domain/entities/device_asset.dart';
+
 class DeviceGalleryLoadSuccess extends DeviceGalleryState {
   const DeviceGalleryLoadSuccess({
     required this.groups,
@@ -29,7 +31,7 @@ class DeviceGalleryLoadSuccess extends DeviceGalleryState {
   final Set<String> deletingAssetIds;
   final bool isAutoBackupEnabled;
   final int notBackedUpCount;
-  final List<AssetEntity> notBackedUpThumbnails;
+  final List<DeviceAsset> notBackedUpThumbnails;
   final int cloudCount;
   final int gridColumns;
   final String? errorMessage;

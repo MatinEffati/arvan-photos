@@ -4,10 +4,5 @@ import 'package:dartz/dartz.dart';
 
 // ignore_for_file: one_member_abstracts
 abstract class PhotoQueryRepository {
-  Future<Either<Failure, PaginatedPhotos>> getPhotos({
-    String? continuationToken,
-    int maxKeys = 20,
-  });
-
   Future<Either<Failure, int>> getCloudCount();
 }

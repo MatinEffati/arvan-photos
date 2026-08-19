@@ -19,7 +19,6 @@ class AppDatabase {
       path,
       version: version,
       onCreate: (db, version) async {
-        await _createSyncRegistryTable(db);
         await _createUploadTasksTable(db);
         await _createBackupQueueTable(db);
       },
@@ -64,17 +63,6 @@ class AppDatabase {
     });
 
     return _database!;
-  }
-
-  static Future<void> _createSyncRegistryTable(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS sync_registry (
-        local_asset_id TEXT PRIMARY KEY,
-        remote_key TEXT,
-        status TEXT NOT NULL,
-        synced_at TEXT
-      )
-    ''');
   }
 
   static Future<void> _createUploadTasksTable(Database db) async {

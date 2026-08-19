@@ -23,7 +23,7 @@ class UploadLocalDataSourceImpl implements UploadLocalDataSource {
       'upload_tasks',
       {
         'id': task.id,
-        'file_path': task.file.path,
+        'file_path': task.filePath,
         'progress': task.progress,
         'status': task.status.name,
         'error_message': task.errorMessage,
@@ -63,7 +63,7 @@ class UploadLocalDataSourceImpl implements UploadLocalDataSource {
     final maps = await _db.query('upload_tasks');
     return maps.map((map) => UploadTask(
       id: map['id'] as String,
-      file: File(map['file_path'] as String),
+      filePath: map['file_path'] as String,
       progress: map['progress'] as double,
       status: UploadStatus.values.firstWhere((e) => e.name == map['status']),
       errorMessage: map['error_message'] as String?,
@@ -83,7 +83,7 @@ class UploadLocalDataSourceImpl implements UploadLocalDataSource {
     final map = maps.first;
     return UploadTask(
       id: map['id'] as String,
-      file: File(map['file_path'] as String),
+      filePath: map['file_path'] as String,
       progress: map['progress'] as double,
       status: UploadStatus.pending,
       errorMessage: map['error_message'] as String?,

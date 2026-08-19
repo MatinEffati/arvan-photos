@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:arvan_photos/core/services/notification_service.dart';
-import 'package:arvan_photos/features/photos/data/datasources/upload_local_datasource.dart';
 import 'package:arvan_photos/features/photos/domain/entities/upload_task.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/enqueue_upload_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_upload_tasks_usecase.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,7 +17,10 @@ part 'upload_state.dart';
 
 @injectable
 class UploadBloc extends Bloc<UploadEvent, UploadState> {
-  UploadBloc(this._localDataSource) : super(UploadInitial()) {
+  UploadBloc(
+    this._enqueueUpload,
+    this._getUploadTasks,
+  ) : super(UploadInitial()) {
     on<UploadStarted>(_onUploadStarted);
     on<UploadTaskUpdated>(_onUploadTaskUpdated);
     on<UploadResetRequested>(_onUploadResetRequested);
@@ -37,7 +41,8 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     });
   }
 
-  final UploadLocalDataSource _localDataSource;
+  final EnqueueUploadUseCase _enqueueUpload;
+  final GetUploadTasksUseCase _getUploadTasks;
   final _uuid = const Uuid();
   StreamSubscription<Map<String, dynamic>?>? _statusSubscription;
   StreamSubscription<Map<String, dynamic>?>? _completedSubscription;
@@ -53,7 +58,7 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     UploadStatusRequested event,
     Emitter<UploadState> emit,
   ) async {
-    final tasks = await _localDataSource.getAllTasks();
+    final tasks = await _getUploadTasks();
     if (tasks.isEmpty) {
       emit(UploadInitial());
     } else {
@@ -103,17 +108,17 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
         .map(
           (file) => UploadTask(
             id: _uuid.v4(),
-            file: file,
+            filePath: file.path,
             status: UploadStatus.pending,
           ),
         )
         .toList();
 
     for (final task in newTasks) {
-      await _localDataSource.addTask(task);
+      await _enqueueUpload(task);
     }
 
-    final allTasks = await _localDataSource.getAllTasks();
+    final allTasks = await _getUploadTasks();
     emit(UploadInProgress(tasks: allTasks));
 
     final service = FlutterBackgroundService();
@@ -157,7 +162,7 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     UploadResetRequested event,
     Emitter<UploadState> emit,
   ) async {
-    await _localDataSource.deleteAllTasks();
+    await _getUploadTasks.clearAll();
     FlutterBackgroundService().invoke('stopService');
     emit(UploadInitial());
   }

@@ -4,7 +4,6 @@ import 'package:arvan_photos/core/services/notification_service.dart';
 import 'package:arvan_photos/core/theme/app_theme.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
-import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_bloc.dart';
 import 'package:arvan_photos/features/cloud/presentation/bloc/cloud_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/main_navigation_screen.dart';
@@ -38,9 +37,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (context) => getIt<PhotosBloc>(),
-        ),
         BlocProvider(
           create: (context) => getIt<UploadBloc>(),
         ),

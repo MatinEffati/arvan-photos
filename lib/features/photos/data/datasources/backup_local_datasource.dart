@@ -1,12 +1,13 @@
+import 'package:arvan_photos/features/photos/data/models/backup_queue_item.dart';
 import 'package:injectable/injectable.dart';
 import 'package:sqflite/sqflite.dart';
 
 abstract class BackupLocalDataSource {
   Future<void> enqueue(List<Map<String, String>> assets);
   Future<void> updateStatus(String assetId, String status, {double? progress, String? remoteKey});
-  Future<List<Map<String, dynamic>>> getAll();
-  Future<List<Map<String, dynamic>>> getPending(int limit);
-  Future<Map<String, dynamic>?> getById(String assetId);
+  Future<List<BackupQueueItem>> getAll();
+  Future<List<BackupQueueItem>> getPending(int limit);
+  Future<BackupQueueItem?> getById(String assetId);
   Future<List<String>> getSyncedIds();
   Future<void> remove(String assetId);
 }
@@ -86,29 +87,31 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getAll() async {
-    return _db.query(_tableName);
+  Future<List<BackupQueueItem>> getAll() async {
+    final maps = await _db.query(_tableName);
+    return maps.map((e) => BackupQueueItem.fromMap(e)).toList();
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getPending(int limit) async {
-    return _db.query(
+  Future<List<BackupQueueItem>> getPending(int limit) async {
+    final maps = await _db.query(
       _tableName,
       where: 'status = ? OR status = ?',
       whereArgs: ['queued', 'failed'],
       limit: limit,
       orderBy: 'queued_at ASC',
     );
+    return maps.map((e) => BackupQueueItem.fromMap(e)).toList();
   }
 
   @override
-  Future<Map<String, dynamic>?> getById(String assetId) async {
+  Future<BackupQueueItem?> getById(String assetId) async {
     final results = await _db.query(
       _tableName,
       where: 'local_asset_id = ?',
       whereArgs: [assetId],
     );
-    return results.isNotEmpty ? results.first : null;
+    return results.isNotEmpty ? BackupQueueItem.fromMap(results.first) : null;
   }
 
   @override

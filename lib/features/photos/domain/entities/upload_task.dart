@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:equatable/equatable.dart';
 
 enum UploadStatus { pending, uploading, success, failure, paused }
@@ -6,7 +5,7 @@ enum UploadStatus { pending, uploading, success, failure, paused }
 class UploadTask extends Equatable {
   const UploadTask({
     required this.id,
-    required this.file,
+    required this.filePath,
     this.progress = 0.0,
     this.status = UploadStatus.pending,
     this.errorMessage,
@@ -14,7 +13,7 @@ class UploadTask extends Equatable {
   });
 
   final String id;
-  final File file;
+  final String filePath;
   final double progress;
   final UploadStatus status;
   final String? errorMessage;
@@ -28,7 +27,7 @@ class UploadTask extends Equatable {
   }) {
     return UploadTask(
       id: id,
-      file: file,
+      filePath: filePath,
       progress: progress ?? this.progress,
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -37,5 +36,5 @@ class UploadTask extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, file, progress, status, errorMessage, localAssetId];
+  List<Object?> get props => [id, filePath, progress, status, errorMessage, localAssetId];
 }

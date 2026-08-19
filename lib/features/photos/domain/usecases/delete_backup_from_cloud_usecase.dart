@@ -4,11 +4,12 @@ import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 
 @injectable
-class DeleteMultiplePhotosUseCase {
-  DeleteMultiplePhotosUseCase(this.repository);
-  final PhotoCommandRepository repository;
+class DeleteBackupFromCloudUseCase {
+  DeleteBackupFromCloudUseCase(this._repository);
 
-  Future<Either<Failure, Unit>> call(List<String> keys) async {
-    return repository.deleteMultiplePhotos(keys);
+  final PhotoCommandRepository _repository;
+
+  Future<Either<Failure, Unit>> call(List<String> assetIds) {
+    return _repository.deleteBackup(assetIds);
   }
 }

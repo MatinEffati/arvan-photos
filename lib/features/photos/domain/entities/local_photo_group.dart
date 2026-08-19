@@ -1,5 +1,5 @@
+import 'package:arvan_photos/features/photos/domain/entities/device_asset.dart';
 import 'package:equatable/equatable.dart';
-import 'package:photo_manager/photo_manager.dart';
 
 class LocalPhotoGroup extends Equatable {
   const LocalPhotoGroup({
@@ -10,7 +10,7 @@ class LocalPhotoGroup extends Equatable {
 
   final String title;
   final DateTime date;
-  final List<AssetEntity> assets;
+  final List<DeviceAsset> assets;
 
   @override
   List<Object?> get props => [title, date, assets];

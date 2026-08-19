@@ -1,11 +1,20 @@
+import 'dart:io';
 import 'package:arvan_photos/core/network/arvan_s3_client.dart';
 import 'package:arvan_photos/features/cloud/data/models/cloud_photo_model.dart';
 import 'package:arvan_photos/features/cloud/domain/entities/paginated_cloud_photos.dart';
+import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
 
 abstract class CloudRemoteDataSource {
   Future<PaginatedCloudPhotos> getPhotos({String? continuationToken});
   Future<void> deletePhoto(String key);
+  Future<void> uploadPhoto(
+    String key,
+    File file, {
+    void Function(int sent, int total)? onProgress,
+    CancelToken? cancelToken,
+  });
+  Future<int> getCloudCount();
 }
 
 @LazySingleton(as: CloudRemoteDataSource)
@@ -32,5 +41,25 @@ class CloudRemoteDataSourceImpl implements CloudRemoteDataSource {
   @override
   Future<void> deletePhoto(String key) async {
     await _client.deleteObject(key);
+  }
+
+  @override
+  Future<void> uploadPhoto(
+    String key,
+    File file, {
+    void Function(int sent, int total)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    await _client.putObject(
+      key,
+      file,
+      onProgress: onProgress,
+      cancelToken: cancelToken,
+    );
+  }
+
+  @override
+  Future<int> getCloudCount() async {
+    return await _client.getBucketObjectCount();
   }
 }

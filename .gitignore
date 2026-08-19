@@ -26,6 +26,7 @@ migrate_working_dir/
 # Environment variables
 .env
 .env.*
+assets/env
 
 # Flutter/Dart/Pub related
 **/doc/api/
