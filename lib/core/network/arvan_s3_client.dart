@@ -55,7 +55,6 @@ class ArvanS3Client {
 
     final document = XmlDocument.parse(response.data.toString());
     final contents = document.findAllElements('Contents').toList();
-    print('S3_CLIENT: Found ${contents.length} objects on server');
     final nextTokenElement = document.findAllElements('NextContinuationToken').firstOrNull;
     
     return S3ListResponse(
@@ -123,8 +122,6 @@ class ArvanS3Client {
         path: '${baseUri.path}/$cleanKey'.replaceAll('//', '/'),
       );
       
-      print('S3_CLIENT: Attempting to delete key: "$cleanKey" at URI: $uri');
-
       final request = AWSHttpRequest(
         method: AWSHttpMethod.delete, 
         uri: uri,
@@ -144,12 +141,9 @@ class ArvanS3Client {
       );
       
       if (response.statusCode != 204 && response.statusCode != 200) {
-        print('S3_DELETE_FAILED: Status ${response.statusCode}');
         throw Exception('Delete failed with status ${response.statusCode}');
       }
-      print('S3_CLIENT: Delete successful for $cleanKey');
     } catch (e) {
-      print('S3_CLIENT_DELETE_ERROR: $e');
       rethrow;
     }
   }

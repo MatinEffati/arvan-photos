@@ -43,8 +43,6 @@ class BackupStatusBloc extends Bloc<BackupStatusEvent, BackupStatusState> {
     final assetId = event.status['assetId'] as String?;
     if (assetId == null) return;
 
-    print('DEBUG_STATUS_BLOC: Updating asset $assetId to ${event.status['status']}');
-
     final updatedStatuses = Map<String, BackupStatus>.from(state.statuses);
     
     // Merge new status info into existing entry

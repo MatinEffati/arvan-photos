@@ -63,7 +63,6 @@ class ArvanS3Client {
       uri: uri,
     );
 
-    print('S3_CLIENT: Signing LIST request for $uri');
     final signedRequest = await _signer.sign(
       request,
       credentialScope: _scope,
@@ -98,7 +97,6 @@ class ArvanS3Client {
       },
     );
 
-    print('S3_CLIENT: Signing PUT request for $uri');
     final signedRequest = await _signer.sign(
       request,
       credentialScope: _scope,
@@ -122,7 +120,6 @@ class ArvanS3Client {
       uri: uri,
     );
 
-    print('S3_CLIENT: Signing DELETE request for $uri');
     final signedRequest = await _signer.sign(
       request,
       credentialScope: _scope,

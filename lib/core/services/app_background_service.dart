@@ -105,24 +105,13 @@ Future<void> onStart(ServiceInstance service) async {
     });
 
     Future<void> runProcessingCycle() async {
-      if (!isRunning) {
-        debugPrint('BACKUP_SERVICE: Cycle skipped - service not running');
-        return;
-      }
-      if (isPaused) {
-        debugPrint('BACKUP_SERVICE: Cycle skipped - service paused');
-        return;
-      }
-
-      debugPrint('BACKUP_SERVICE: Starting processing cycle. Active: ${activeUploads.length}');
+      if (!isRunning || isPaused) return;
 
       if (activeUploads.length >= AppBackgroundService.maxConcurrentUploads) {
-        debugPrint('BACKUP_SERVICE: Max concurrent uploads reached');
         return;
       }
 
       final allPending = await backupLocalDataSource.getPending(500);
-      debugPrint('BACKUP_SERVICE: Found ${allPending.length} pending backup tasks');
       
       if (allPending.isNotEmpty && activeUploads.isEmpty) {
         lastQueueTotal = allPending.length;
@@ -139,8 +128,6 @@ Future<void> onStart(ServiceInstance service) async {
         limit: AppBackgroundService.maxConcurrentUploads - activeUploads.length,
       );
       
-      debugPrint('BACKUP_SERVICE: Picking ${pendingBackup.length} backup and ${manualTasks.length} manual tasks');
-
       if (pendingBackup.isEmpty &&
           manualTasks.isEmpty &&
           activeUploads.isEmpty) {
@@ -156,7 +143,6 @@ Future<void> onStart(ServiceInstance service) async {
       for (final taskMap in manualTasks) {
         final taskId = taskMap['id']! as String;
         if (activeUploads.containsKey(taskId)) continue;
-        debugPrint('BACKUP_SERVICE: Starting manual upload for task $taskId');
         unawaited(
           _startManualUpload(
             taskMap: taskMap,
@@ -173,7 +159,6 @@ Future<void> onStart(ServiceInstance service) async {
         final assetId = task.localAssetId;
         if (activeUploads.containsKey(assetId)) continue;
 
-        debugPrint('BACKUP_SERVICE: Starting backup upload for asset $assetId');
         unawaited(
           _startBackupUpload(
             assetId: assetId,
@@ -244,11 +229,9 @@ Future<void> _startBackupUpload({
 
     final file = File(filePath);
     if (!await file.exists()) {
-      debugPrint('BACKUP_SERVICE: File MISSING at path: $filePath');
       throw Exception('File does not exist at path: $filePath');
     }
 
-    debugPrint('BACKUP_SERVICE: Starting Arvan S3 upload for $filePath');
     final result = await repository.uploadPhoto(
       filePath,
       cancelToken: cancelToken,

@@ -94,24 +94,19 @@ class PhotoRepositoryImpl
   @override
   Future<Either<Failure, Unit>> enqueueBackup(List<Map<String, String>> assets) async {
     try {
-      print('REPOSITORY: Enqueuing ${assets.length} assets for backup');
       await backupLocalDataSource.enqueue(assets);
       
       final service = FlutterBackgroundService();
       final isRunning = await service.isRunning();
-      print('REPOSITORY: Background service isRunning: $isRunning');
       
       if (!isRunning) {
-        print('REPOSITORY: Starting background service...');
         await AppBackgroundService.start();
       } else {
-        print('REPOSITORY: Sending enqueue signal to active service');
         service.invoke('enqueue');
       }
       
       return const Right(unit);
     } catch (e) {
-      print('REPOSITORY_ERROR: $e');
       return Left(ErrorMapper.map(e));
     }
   }
@@ -119,22 +114,17 @@ class PhotoRepositoryImpl
   @override
   Future<Either<Failure, Unit>> deleteBackup(List<String> assetIds) async {
     try {
-      print('DEBUG_DELETE: Starting deletion for ${assetIds.length} assets');
       for (final id in assetIds) {
         final statusItem = await backupLocalDataSource.getById(id);
         if (statusItem != null && statusItem.remoteKey != null) {
           final key = statusItem.remoteKey!;
-          print('DEBUG_DELETE: Deleting from cloud: $key');
           await remoteDataSource.deletePhoto(key);
           await backupLocalDataSource.updateStatus(id, 'manually_removed');
           _statusController.add({'assetId': id, 'status': 'manually_removed'});
-        } else {
-          print('DEBUG_DELETE: Asset $id not found or has no remote key');
         }
       }
       return const Right(unit);
     } catch (e) {
-      print('DEBUG_DELETE: Error occurred: $e');
       return Left(ErrorMapper.map(e));
     }
   }
