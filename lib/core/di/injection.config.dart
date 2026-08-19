@@ -24,6 +24,8 @@ import 'package:arvan_photos/features/cloud/domain/usecases/get_cloud_photos.dar
     as _i717;
 import 'package:arvan_photos/features/cloud/presentation/bloc/cloud_bloc.dart'
     as _i833;
+import 'package:arvan_photos/features/photos/data/datasources/arvan_s3_client.dart'
+    as _i273;
 import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart'
     as _i485;
 import 'package:arvan_photos/features/photos/data/datasources/device_gallery_datasource.dart'
@@ -89,13 +91,9 @@ extension GetItInjectableX on _i174.GetIt {
     _i526.EnvironmentFilter? environmentFilter,
   }) async {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
-    final coreModule = _$CoreModule();
     final databaseModule = _$DatabaseModule();
+    final coreModule = _$CoreModule();
     final repositoryModule = _$RepositoryModule();
-    await gh.factoryAsync<_i460.SharedPreferences>(
-      () => coreModule.prefs,
-      preResolve: true,
-    );
     await gh.factoryAsync<_i779.Database>(
       () => databaseModule.database,
       preResolve: true,
@@ -110,6 +108,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i916.DeviceGalleryDataSource>(
       () => _i916.DeviceGalleryDataSourceImpl(),
+    );
+    gh.lazySingleton<_i273.ArvanS3Client>(
+      () => _i273.ArvanS3Client(gh<_i361.Dio>()),
     );
     gh.lazySingleton<_i638.UploadLocalDataSource>(
       () => _i638.UploadLocalDataSourceImpl(gh<_i779.Database>()),
@@ -214,8 +215,8 @@ extension GetItInjectableX on _i174.GetIt {
   }
 }
 
-class _$CoreModule extends _i234.CoreModule {}
-
 class _$DatabaseModule extends _i42.DatabaseModule {}
+
+class _$CoreModule extends _i234.CoreModule {}
 
 class _$RepositoryModule extends _i774.RepositoryModule {}
