@@ -5,5 +5,6 @@ import 'package:sqflite/sqflite.dart';
 @module
 abstract class DatabaseModule {
   @preResolve
+  @singleton
   Future<Database> get database => AppDatabase.open();
 }

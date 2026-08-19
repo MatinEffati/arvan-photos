@@ -40,27 +40,26 @@ class AppDatabase {
           } catch (_) {}
         }
       },
+      onOpen: (db) async {
+        // After opening the database, ensure all columns exist (robust migration)
+        await db.execute('ALTER TABLE backup_queue ADD COLUMN file_path TEXT').catchError((_) => null);
+
+        // Reset any tasks stuck in 'uploading' state.
+        // This handles recovery after app crashes or forced stops.
+        await db.update(
+          'backup_queue',
+          {'status': 'queued'},
+          where: 'status = ?',
+          whereArgs: ['uploading'],
+        );
+        await db.update(
+          'upload_tasks',
+          {'status': 'pending'},
+          where: 'status = ?',
+          whereArgs: ['uploading'],
+        );
+      },
     );
-
-    // After opening the database, ensure all columns exist (robust migration)
-    await _database?.execute('ALTER TABLE backup_queue ADD COLUMN file_path TEXT').catchError((_) => null);
-
-    // After opening the database, reset any tasks stuck in 'uploading' state.
-    // This handles recovery after app crashes or forced stops.
-    await _database?.transaction((txn) async {
-      await txn.update(
-        'backup_queue',
-        {'status': 'queued'},
-        where: 'status = ?',
-        whereArgs: ['uploading'],
-      );
-      await txn.update(
-        'upload_tasks',
-        {'status': 'pending'}, // Status name from UploadStatus enum
-        where: 'status = ?',
-        whereArgs: ['uploading'],
-      );
-    });
 
     return _database!;
   }

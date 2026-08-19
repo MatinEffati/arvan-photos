@@ -98,7 +98,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => coreModule.prefs,
       preResolve: true,
     );
-    await gh.factoryAsync<_i779.Database>(
+    await gh.singletonAsync<_i779.Database>(
       () => databaseModule.database,
       preResolve: true,
     );

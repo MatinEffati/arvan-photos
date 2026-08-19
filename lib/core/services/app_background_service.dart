@@ -78,6 +78,7 @@ Future<void> onStart(ServiceInstance service) async {
 
     var isRunning = true;
     var isPaused = false;
+    var isProcessing = false;
     final activeUploads = <String, DioUploadCancelToken>{};
     var lastQueueTotal = 0;
 
@@ -105,77 +106,82 @@ Future<void> onStart(ServiceInstance service) async {
     });
 
     Future<void> runProcessingCycle() async {
-      if (!isRunning || isPaused) return;
+      if (!isRunning || isPaused || isProcessing) return;
+      isProcessing = true;
 
-      if (activeUploads.length >= AppBackgroundService.maxConcurrentUploads) {
-        return;
-      }
+      try {
+        if (activeUploads.length >= AppBackgroundService.maxConcurrentUploads) {
+          return;
+        }
 
-      final allPending = await backupLocalDataSource.getPending(500);
-      
-      if (allPending.isNotEmpty && activeUploads.isEmpty) {
-        lastQueueTotal = allPending.length;
-      }
+        final allPending = await backupLocalDataSource.getPending(500);
+        
+        if (allPending.isNotEmpty && activeUploads.isEmpty) {
+          lastQueueTotal = allPending.length;
+        }
 
-      final pendingBackup = await backupLocalDataSource.getPending(
-        AppBackgroundService.maxConcurrentUploads - activeUploads.length,
-      );
+        final pendingBackup = await backupLocalDataSource.getPending(
+          AppBackgroundService.maxConcurrentUploads - activeUploads.length,
+        );
 
-      final manualTasks = await db.query(
-        'upload_tasks',
-        where: 'status = ?',
-        whereArgs: [UploadStatus.pending.name],
-        limit: AppBackgroundService.maxConcurrentUploads - activeUploads.length,
-      );
-      
-      if (pendingBackup.isEmpty &&
-          manualTasks.isEmpty &&
-          activeUploads.isEmpty) {
+        final manualTasks = await db.query(
+          'upload_tasks',
+          where: 'status = ?',
+          whereArgs: [UploadStatus.pending.name],
+          limit: AppBackgroundService.maxConcurrentUploads - activeUploads.length,
+        );
+        
+        if (pendingBackup.isEmpty &&
+            manualTasks.isEmpty &&
+            activeUploads.isEmpty) {
+          await _updateOverallNotification(
+            service,
+            backupLocalDataSource,
+            lastQueueTotal,
+            isPaused: isPaused,
+          );
+          return;
+        }
+
+        for (final taskMap in manualTasks) {
+          final taskId = taskMap['id']! as String;
+          if (activeUploads.containsKey(taskId)) continue;
+          unawaited(
+            _startManualUpload(
+              taskMap: taskMap,
+              service: service,
+              db: db,
+              repository: repository,
+              activeUploads: activeUploads,
+              backupLocalDataSource: backupLocalDataSource,
+            ),
+          );
+        }
+
+        for (final task in pendingBackup) {
+          final assetId = task.localAssetId;
+          if (activeUploads.containsKey(assetId)) continue;
+
+          unawaited(
+            _startBackupUpload(
+              assetId: assetId,
+              service: service,
+              localDataSource: backupLocalDataSource,
+              repository: repository,
+              activeUploads: activeUploads,
+            ),
+          );
+        }
+
         await _updateOverallNotification(
           service,
           backupLocalDataSource,
           lastQueueTotal,
           isPaused: isPaused,
         );
-        return;
+      } finally {
+        isProcessing = false;
       }
-
-      for (final taskMap in manualTasks) {
-        final taskId = taskMap['id']! as String;
-        if (activeUploads.containsKey(taskId)) continue;
-        unawaited(
-          _startManualUpload(
-            taskMap: taskMap,
-            service: service,
-            db: db,
-            repository: repository,
-            activeUploads: activeUploads,
-            backupLocalDataSource: backupLocalDataSource,
-          ),
-        );
-      }
-
-      for (final task in pendingBackup) {
-        final assetId = task.localAssetId;
-        if (activeUploads.containsKey(assetId)) continue;
-
-        unawaited(
-          _startBackupUpload(
-            assetId: assetId,
-            service: service,
-            localDataSource: backupLocalDataSource,
-            repository: repository,
-            activeUploads: activeUploads,
-          ),
-        );
-      }
-
-      await _updateOverallNotification(
-        service,
-        backupLocalDataSource,
-        lastQueueTotal,
-        isPaused: isPaused,
-      );
     }
 
     // Listen for immediate backup requests

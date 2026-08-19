@@ -25,14 +25,13 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
     final syncedIds = await getSyncedIds();
     final syncedIdsSet = syncedIds.toSet();
 
-    final batch = _db.batch();
     for (final asset in assets) {
       final id = asset['id']!;
       final path = asset['path']!;
       
       if (syncedIdsSet.contains(id)) continue;
 
-      batch.insert(
+      await _db.insert(
         _tableName,
         {
           'local_asset_id': id,
@@ -44,7 +43,6 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
-    await batch.commit(noResult: true);
   }
 
   @override
