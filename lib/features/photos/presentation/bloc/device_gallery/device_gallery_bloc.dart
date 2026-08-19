@@ -111,13 +111,22 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       ));
 
       if (isAutoBackupEnabled) {
-        final toEnqueue = assets
-            .where((a) => !syncedIdsSet.contains(a.id) && !inQueueSet.contains(a.id))
-            .map((a) => a.id)
+        final toEnqueueAssets = assets
+            .where((a) =>
+                !syncedIdsSet.contains(a.id) && !inQueueSet.contains(a.id))
             .toList();
-            
-        if (toEnqueue.isNotEmpty) {
-          await _enqueueBackupUseCase(toEnqueue);
+
+        if (toEnqueueAssets.isNotEmpty) {
+          final toEnqueue = <Map<String, String>>[];
+          for (final asset in toEnqueueAssets) {
+            final file = await asset.file;
+            if (file != null) {
+              toEnqueue.add({'id': asset.id, 'path': file.path});
+            }
+          }
+          if (toEnqueue.isNotEmpty) {
+            await _enqueueBackupUseCase(toEnqueue);
+          }
         }
       }
     } catch (e) {
@@ -131,7 +140,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
   }
 
   static List<LocalPhotoGroup> _groupAssetsInternal(List<AssetEntity> assets) {
-    final Map<String, List<AssetEntity>> grouped = {};
+    final grouped = <String, List<AssetEntity>>{};
     final DateFormat formatter = DateFormat('yyyy-MM-dd');
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -154,8 +163,8 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     }
 
     final List<LocalPhotoGroup> groups = grouped.entries.map((entry) {
-      final groupAssets = entry.value;
-      groupAssets.sort((a, b) => b.modifiedDateTime.compareTo(a.modifiedDateTime));
+      final groupAssets = entry.value
+      ..sort((a, b) => b.modifiedDateTime.compareTo(a.modifiedDateTime));
       
       final groupDate = groupAssets.first.modifiedDateTime;
       return LocalPhotoGroup(
@@ -163,9 +172,9 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
         date: groupDate,
         assets: groupAssets,
       );
-    }).toList();
+    }).toList()
 
-    groups.sort((a, b) => b.date.compareTo(a.date));
+    ..sort((a, b) => b.date.compareTo(a.date));
     return groups;
   }
 
@@ -198,7 +207,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       
       final selectedIds = Set<String>.from(currentState.selectedAssetIds);
       
-      final allInGroupSelected = groupIds.every((id) => selectedIds.contains(id));
+      final allInGroupSelected = groupIds.every(selectedIds.contains);
       
       if (allInGroupSelected) {
         selectedIds.removeAll(groupIds);
@@ -247,7 +256,20 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
         notBackedUpThumbnails: currentState.notBackedUpThumbnails,
       ));
 
-      final result = await _enqueueBackupUseCase(currentState.selectedAssetIds.toList());
+      final assets = currentState.groups
+          .expand((g) => g.assets)
+          .where((a) => currentState.selectedAssetIds.contains(a.id))
+          .toList();
+
+      final toEnqueue = <Map<String, String>>[];
+      for (final asset in assets) {
+        final file = await asset.file;
+        if (file != null) {
+          toEnqueue.add({'id': asset.id, 'path': file.path});
+        }
+      }
+
+      final result = await _enqueueBackupUseCase(toEnqueue);
 
       result.fold(
         (failure) => emit(DeviceGalleryLoadFailure(failure.toString())),
@@ -311,14 +333,21 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
         final allAssets = currentState.groups.expand((g) => g.assets).toList();
         final syncedIds = await _backupLocalDataSource.getSyncedIds();
         final syncedIdsSet = syncedIds.toSet();
-        
-        final toEnqueue = allAssets
-            .where((a) => !syncedIdsSet.contains(a.id))
-            .map((a) => a.id)
-            .toList();
 
-        if (toEnqueue.isNotEmpty) {
-          await _enqueueBackupUseCase(toEnqueue);
+        final toEnqueueAssets =
+            allAssets.where((a) => !syncedIdsSet.contains(a.id)).toList();
+
+        if (toEnqueueAssets.isNotEmpty) {
+          final toEnqueue = <Map<String, String>>[];
+          for (final asset in toEnqueueAssets) {
+            final file = await asset.file;
+            if (file != null) {
+              toEnqueue.add({'id': asset.id, 'path': file.path});
+            }
+          }
+          if (toEnqueue.isNotEmpty) {
+            await _enqueueBackupUseCase(toEnqueue);
+          }
         }
       }
     }

@@ -2,7 +2,7 @@ import 'package:injectable/injectable.dart';
 import 'package:sqflite/sqflite.dart';
 
 abstract class BackupLocalDataSource {
-  Future<void> enqueue(List<String> assetIds);
+  Future<void> enqueue(List<Map<String, String>> assets);
   Future<void> updateStatus(String assetId, String status, {double? progress, String? remoteKey});
   Future<List<Map<String, dynamic>>> getAll();
   Future<List<Map<String, dynamic>>> getPending(int limit);
@@ -19,11 +19,14 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
   static const String _tableName = 'backup_queue';
 
   @override
-  Future<void> enqueue(List<String> assetIds) async {
+  Future<void> enqueue(List<Map<String, String>> assets) async {
     final now = DateTime.now().toIso8601String();
     
     await _db.transaction((txn) async {
-      for (final id in assetIds) {
+      for (final asset in assets) {
+        final id = asset['id']!;
+        final path = asset['path']!;
+
         // Only insert if not exists, or update if status is NOT 'synced'
         final existing = await txn.query(
           _tableName,
@@ -35,6 +38,7 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
         if (existing.isEmpty) {
           await txn.insert(_tableName, {
             'local_asset_id': id,
+            'file_path': path,
             'status': 'queued',
             'progress': 0.0,
             'queued_at': now,
@@ -45,6 +49,7 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
             await txn.update(
               _tableName,
               {
+                'file_path': path,
                 'status': 'queued',
                 'progress': 0.0,
                 'queued_at': now,

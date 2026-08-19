@@ -31,10 +31,10 @@ class AppBackgroundService {
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
         autoStart: false,
-        isForegroundMode: false,
+        isForegroundMode: true, // Crucial for reliability on modern Android
         notificationChannelId: 'upload_channel',
-        initialNotificationTitle: 'Photo Service',
-        initialNotificationContent: 'Initializing...',
+        initialNotificationTitle: 'Photo Backup Service',
+        initialNotificationContent: 'Preparing to sync...',
         foregroundServiceNotificationId: notificationId,
         foregroundServiceTypes: [AndroidForegroundType.dataSync],
       ),
@@ -58,6 +58,17 @@ class AppBackgroundService {
 Future<void> onStart(ServiceInstance service) async {
   try {
     DartPluginRegistrant.ensureInitialized();
+    
+    // On Android, we must show a foreground notification immediately if isForegroundMode is true
+    if (service is AndroidServiceInstance) {
+      service.setAsForegroundService();
+      service.setForegroundNotificationInfo(
+        title: 'Arvan Photos',
+        content: 'Service is starting...',
+      );
+    }
+
+    debugPrint('BACKUP_SERVICE: Background isolate active');
 
     await NotificationService.initialize(service);
     try {
@@ -65,6 +76,8 @@ Future<void> onStart(ServiceInstance service) async {
     } catch (_) {}
 
     final db = await AppDatabase.open();
+    debugPrint('BACKUP_SERVICE: Database opened');
+    
     final dio = Dio();
     if (kDebugMode) {
       dio.interceptors.add(
@@ -76,7 +89,6 @@ Future<void> onStart(ServiceInstance service) async {
     final remoteDataSource = PhotosRemoteDataSourceImpl(s3Client);
     final keyGenerator = S3PhotoKeyGenerator();
     final backupLocalDataSource = BackupLocalDataSourceImpl(db);
-    final prefs = await SharedPreferences.getInstance();
 
     final repository = PhotoRepositoryImpl(
       remoteDataSource,
@@ -90,6 +102,7 @@ Future<void> onStart(ServiceInstance service) async {
     var lastQueueTotal = 0;
 
     service.on('stopService').listen((event) async {
+      debugPrint('BACKUP_SERVICE: Stopping service command received');
       isRunning = false;
       for (final token in activeUploads.values) {
         token.cancel('Service stopped');
@@ -100,27 +113,37 @@ Future<void> onStart(ServiceInstance service) async {
     });
 
     service.on('pause').listen((event) {
+      debugPrint('BACKUP_SERVICE: Paused');
       isPaused = true;
       service.invoke('update', {'status': 'paused'});
     });
 
     service.on('resume').listen((event) {
+      debugPrint('BACKUP_SERVICE: Resumed');
       isPaused = false;
       service.invoke('update', {'status': 'resumed'});
     });
 
     Future<void> runProcessingCycle() async {
-      if (!isRunning || isPaused) return;
+      if (!isRunning) {
+        debugPrint('BACKUP_SERVICE: Cycle skipped - service not running');
+        return;
+      }
+      if (isPaused) {
+        debugPrint('BACKUP_SERVICE: Cycle skipped - service paused');
+        return;
+      }
 
-      // Note: We removed automatic scanning here because PhotoManager 
-      // does not support background isolates. 
-      // Automatic scanning is now handled by the UI Bloc when the app is open.
+      debugPrint('BACKUP_SERVICE: Starting processing cycle. Active: ${activeUploads.length}');
 
       if (activeUploads.length >= AppBackgroundService.maxConcurrentUploads) {
+        debugPrint('BACKUP_SERVICE: Max concurrent uploads reached');
         return;
       }
 
       final allPending = await backupLocalDataSource.getPending(500);
+      debugPrint('BACKUP_SERVICE: Found ${allPending.length} pending backup tasks');
+      
       if (allPending.isNotEmpty && activeUploads.isEmpty) {
         lastQueueTotal = allPending.length;
       }
@@ -135,6 +158,8 @@ Future<void> onStart(ServiceInstance service) async {
         whereArgs: [UploadStatus.pending.name],
         limit: AppBackgroundService.maxConcurrentUploads - activeUploads.length,
       );
+      
+      debugPrint('BACKUP_SERVICE: Picking ${pendingBackup.length} backup and ${manualTasks.length} manual tasks');
 
       if (pendingBackup.isEmpty &&
           manualTasks.isEmpty &&
@@ -151,6 +176,7 @@ Future<void> onStart(ServiceInstance service) async {
       for (final taskMap in manualTasks) {
         final taskId = taskMap['id']! as String;
         if (activeUploads.containsKey(taskId)) continue;
+        debugPrint('BACKUP_SERVICE: Starting manual upload for task $taskId');
         unawaited(
           _startManualUpload(
             taskMap: taskMap,
@@ -167,6 +193,7 @@ Future<void> onStart(ServiceInstance service) async {
         final assetId = task['local_asset_id']! as String;
         if (activeUploads.containsKey(assetId)) continue;
 
+        debugPrint('BACKUP_SERVICE: Starting backup upload for asset $assetId');
         unawaited(
           _startBackupUpload(
             assetId: assetId,
@@ -188,6 +215,7 @@ Future<void> onStart(ServiceInstance service) async {
 
     // Listen for immediate backup requests
     service.on('enqueue').listen((event) {
+      debugPrint('BACKUP_SERVICE: Enqueue signal received');
       unawaited(runProcessingCycle());
     });
 
@@ -201,8 +229,9 @@ Future<void> onStart(ServiceInstance service) async {
       }
       await runProcessingCycle();
     });
-  } catch (e) {
+  } catch (e, stack) {
     debugPrint('BACKUP_SERVICE_FATAL_ERROR: $e');
+    debugPrint(stack.toString());
   }
 }
 
@@ -226,12 +255,20 @@ Future<void> _startBackupUpload({
   });
 
   try {
-    final asset = await AssetEntity.fromId(assetId);
-    if (asset == null) throw Exception('Asset not found');
+    final taskMap = await localDataSource.getById(assetId);
+    final filePath = taskMap?['file_path'] as String?;
 
-    final file = await asset.file;
-    if (file == null) throw Exception('File not found');
+    if (filePath == null) {
+      throw Exception('File path not found in database for asset $assetId');
+    }
 
+    final file = File(filePath);
+    if (!await file.exists()) {
+      debugPrint('BACKUP_SERVICE: File MISSING at path: $filePath');
+      throw Exception('File does not exist at path: $filePath');
+    }
+
+    debugPrint('BACKUP_SERVICE: Starting Arvan S3 upload for $filePath');
     final result = await repository.uploadPhoto(
       file,
       cancelToken: cancelToken,
@@ -270,6 +307,7 @@ Future<void> _startBackupUpload({
       },
     );
   } catch (e) {
+    debugPrint('BACKUP_SERVICE_UPLOAD_ERROR: $e');
     await localDataSource.updateStatus(assetId, 'failed');
     service.invoke('status_update', {'assetId': assetId, 'status': 'failed'});
   } finally {

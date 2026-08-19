@@ -2,7 +2,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
-  static const int version = 6;
+  static const int version = 7;
   static const String name = 'arvan_photos.db';
 
   static Database? _database;
@@ -35,8 +35,34 @@ class AppDatabase {
         if (oldVersion < 6) {
           await _createBackupQueueTable(db);
         }
+        if (oldVersion < 7) {
+          try {
+            await db.execute('ALTER TABLE backup_queue ADD COLUMN file_path TEXT');
+          } catch (_) {}
+        }
       },
     );
+
+    // After opening the database, ensure all columns exist (robust migration)
+    await _database?.execute('ALTER TABLE backup_queue ADD COLUMN file_path TEXT').catchError((_) => null);
+
+    // After opening the database, reset any tasks stuck in 'uploading' state.
+    // This handles recovery after app crashes or forced stops.
+    await _database?.transaction((txn) async {
+      await txn.update(
+        'backup_queue',
+        {'status': 'queued'},
+        where: 'status = ?',
+        whereArgs: ['uploading'],
+      );
+      await txn.update(
+        'upload_tasks',
+        {'status': 'pending'}, // Status name from UploadStatus enum
+        where: 'status = ?',
+        whereArgs: ['uploading'],
+      );
+    });
+
     return _database!;
   }
 
@@ -70,6 +96,7 @@ class AppDatabase {
         CREATE TABLE IF NOT EXISTS backup_queue (
           local_asset_id TEXT PRIMARY KEY,
           remote_key TEXT,
+          file_path TEXT,
           status TEXT NOT NULL,
           progress REAL DEFAULT 0,
           queued_at TEXT,

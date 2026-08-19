@@ -9,7 +9,7 @@ class EnqueueBackupUseCase {
 
   final PhotoCommandRepository _repository;
 
-  Future<Either<Failure, Unit>> call(List<String> assetIds) async {
-    return _repository.enqueueBackup(assetIds);
+  Future<Either<Failure, Unit>> call(List<Map<String, String>> assets) async {
+    return _repository.enqueueBackup(assets);
   }
 }

@@ -113,13 +113,26 @@ class PhotoRepositoryImpl
   }
 
   @override
-  Future<Either<Failure, Unit>> enqueueBackup(List<String> assetIds) async {
+  Future<Either<Failure, Unit>> enqueueBackup(List<Map<String, String>> assets) async {
     try {
-      await backupLocalDataSource.enqueue(assetIds);
-      await AppBackgroundService.start();
-      FlutterBackgroundService().invoke('enqueue');
+      print('REPOSITORY: Enqueuing ${assets.length} assets for backup');
+      await backupLocalDataSource.enqueue(assets);
+      
+      final service = FlutterBackgroundService();
+      final isRunning = await service.isRunning();
+      print('REPOSITORY: Background service isRunning: $isRunning');
+      
+      if (!isRunning) {
+        print('REPOSITORY: Starting background service...');
+        await AppBackgroundService.start();
+      } else {
+        print('REPOSITORY: Sending enqueue signal to active service');
+        service.invoke('enqueue');
+      }
+      
       return const Right(unit);
     } catch (e) {
+      print('REPOSITORY_ERROR: $e');
       return Left(ErrorMapper.map(e));
     }
   }

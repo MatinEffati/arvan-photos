@@ -38,7 +38,7 @@ class NotificationService {
 
   static Future<void> initialize([ServiceInstance? service]) async {
     const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
+      '@mipmap/launcher_icon',
     );
     const iosSettings = DarwinInitializationSettings();
     const settings = InitializationSettings(

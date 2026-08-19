@@ -14,7 +14,7 @@ abstract class PhotoCommandRepository {
   Future<Either<Failure, Unit>> deleteMultiplePhotos(List<String> keys);
   Future<Either<Failure, Unit>> editPhoto(String key, File editedFile);
 
-  Future<Either<Failure, Unit>> enqueueBackup(List<String> assetIds);
+  Future<Either<Failure, Unit>> enqueueBackup(List<Map<String, String>> assets);
   Future<Either<Failure, Unit>> deleteBackup(List<String> assetIds);
   Future<Either<Failure, int>> getCloudCount();
   Stream<Map<String, dynamic>> watchBackupStatus();
