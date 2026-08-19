@@ -91,9 +91,13 @@ extension GetItInjectableX on _i174.GetIt {
     _i526.EnvironmentFilter? environmentFilter,
   }) async {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
-    final databaseModule = _$DatabaseModule();
     final coreModule = _$CoreModule();
+    final databaseModule = _$DatabaseModule();
     final repositoryModule = _$RepositoryModule();
+    await gh.factoryAsync<_i460.SharedPreferences>(
+      () => coreModule.prefs,
+      preResolve: true,
+    );
     await gh.factoryAsync<_i779.Database>(
       () => databaseModule.database,
       preResolve: true,
@@ -215,8 +219,8 @@ extension GetItInjectableX on _i174.GetIt {
   }
 }
 
-class _$DatabaseModule extends _i42.DatabaseModule {}
-
 class _$CoreModule extends _i234.CoreModule {}
+
+class _$DatabaseModule extends _i42.DatabaseModule {}
 
 class _$RepositoryModule extends _i774.RepositoryModule {}

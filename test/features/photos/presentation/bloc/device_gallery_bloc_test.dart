@@ -10,6 +10,7 @@ import 'package:arvan_photos/features/photos/domain/usecases/watch_backup_status
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,6 +26,8 @@ class MockWatchBackupStatusUseCase extends Mock implements WatchBackupStatusUseC
 class MockSharedPreferences extends Mock implements SharedPreferences {}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late DeviceGalleryBloc bloc;
   late MockGetLocalGalleryUseCase mockGetLocalGallery;
   late MockGetBackupStatusUseCase mockGetBackupStatuses;
@@ -37,6 +40,12 @@ void main() {
   late MockSharedPreferences mockPrefs;
 
   setUp(() {
+    const channel = MethodChannel('com.fluttercandies/photo_manager');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+      return null;
+    });
+
     mockGetLocalGallery = MockGetLocalGalleryUseCase();
     mockGetBackupStatuses = MockGetBackupStatusUseCase();
     mockGetSyncedIds = MockGetSyncedIdsUseCase();

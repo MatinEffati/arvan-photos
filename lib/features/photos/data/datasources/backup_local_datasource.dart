@@ -22,46 +22,29 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
   @override
   Future<void> enqueue(List<Map<String, String>> assets) async {
     final now = DateTime.now().toIso8601String();
-    
-    await _db.transaction((txn) async {
-      for (final asset in assets) {
-        final id = asset['id']!;
-        final path = asset['path']!;
+    final syncedIds = await getSyncedIds();
+    final syncedIdsSet = syncedIds.toSet();
 
-        // Only insert if not exists, or update if status is NOT 'synced'
-        final existing = await txn.query(
-          _tableName,
-          columns: ['status'],
-          where: 'local_asset_id = ?',
-          whereArgs: [id],
-        );
+    final batch = _db.batch();
+    for (final asset in assets) {
+      final id = asset['id']!;
+      final path = asset['path']!;
+      
+      if (syncedIdsSet.contains(id)) continue;
 
-        if (existing.isEmpty) {
-          await txn.insert(_tableName, {
-            'local_asset_id': id,
-            'file_path': path,
-            'status': 'queued',
-            'progress': 0.0,
-            'queued_at': now,
-          });
-        } else {
-          final status = existing.first['status'] as String;
-          if (status != 'synced') {
-            await txn.update(
-              _tableName,
-              {
-                'file_path': path,
-                'status': 'queued',
-                'progress': 0.0,
-                'queued_at': now,
-              },
-              where: 'local_asset_id = ?',
-              whereArgs: [id],
-            );
-          }
-        }
-      }
-    });
+      batch.insert(
+        _tableName,
+        {
+          'local_asset_id': id,
+          'file_path': path,
+          'status': 'queued',
+          'progress': 0.0,
+          'queued_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   @override

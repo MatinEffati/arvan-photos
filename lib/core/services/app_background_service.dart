@@ -47,6 +47,8 @@ class AppBackgroundService {
   }
 }
 
+bool _isCompleteNotificationShown = false;
+
 @pragma('vm:entry-point')
 Future<void> onStart(ServiceInstance service) async {
   try {
@@ -377,24 +379,32 @@ Future<void> _updateOverallNotification(
   final itemsLeft = queued + uploading;
 
   if (itemsLeft == 0) {
-    if (service is AndroidServiceInstance) {
-      await service.setAsBackgroundService();
-    }
-
     final synced = all.where((e) => e.status == 'synced').length;
     if (synced > 0) {
-      await NotificationService.showUploadProgress(
-        id: AppBackgroundService.notificationId,
-        title: 'Backup Complete',
-        progress: 100,
-        total: 100,
-        isComplete: true,
-      );
+      if (!_isCompleteNotificationShown) {
+        if (service is AndroidServiceInstance) {
+          await service.setAsBackgroundService();
+        }
+        _isCompleteNotificationShown = true;
+        await NotificationService.showUploadProgress(
+          id: AppBackgroundService.notificationId,
+          title: 'Backup Complete',
+          progress: 100,
+          total: 100,
+          isComplete: true,
+        );
+      }
     } else {
+      if (service is AndroidServiceInstance) {
+        await service.setAsBackgroundService();
+      }
+      _isCompleteNotificationShown = false;
       await NotificationService.cancel(AppBackgroundService.notificationId);
     }
     return;
   }
+
+  _isCompleteNotificationShown = false;
 
   if (service is AndroidServiceInstance) {
     await service.setAsForegroundService();
