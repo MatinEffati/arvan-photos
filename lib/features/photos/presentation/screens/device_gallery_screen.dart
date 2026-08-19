@@ -164,9 +164,15 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
     return AppBar(
       title: GestureDetector(
         onTap: () {
+          final galleryBloc = context.read<DeviceGalleryBloc>();
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const BackupSettingsScreen()),
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: galleryBloc,
+                child: const BackupSettingsScreen(),
+              ),
+            ),
           );
         },
         child: Row(
@@ -192,9 +198,15 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         IconButton(
           icon: const Icon(Icons.grid_view, color: AppColors.grey700),
           onPressed: () {
+            final galleryBloc = context.read<DeviceGalleryBloc>();
             Navigator.push(
               context,
-              MaterialPageRoute<void>(builder: (_) => const PhotosViewStubScreen()),
+              MaterialPageRoute<void>(
+                builder: (_) => BlocProvider.value(
+                  value: galleryBloc,
+                  child: const PhotosViewStubScreen(),
+                ),
+              ),
             );
           },
           tooltip: 'Photos view',
@@ -202,14 +214,20 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         IconButton(
           icon: const Icon(Icons.settings_outlined),
           onPressed: () {
+            final galleryBloc = context.read<DeviceGalleryBloc>();
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const BackupSettingsScreen()),
+              MaterialPageRoute(
+                builder: (_) => BlocProvider.value(
+                  value: galleryBloc,
+                  child: const BackupSettingsScreen(),
+                ),
+              ),
             );
           },
         ),
         const Padding(
-          padding: EdgeInsets.only(right: 16.0),
+          padding: EdgeInsets.only(right: 16),
           child: CircleAvatar(
             radius: 14,
             backgroundColor: AppColors.grey200,
@@ -279,18 +297,27 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                                   .add(DeviceGallerySelectionToggled(asset.id));
                             } else {
                               final allAssets = state.groups.expand((g) => g.assets).toList();
+                              final galleryBloc = context.read<DeviceGalleryBloc>();
+                              final statusBloc = context.read<BackupStatusBloc>();
+
                               Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                  builder: (_) => LocalPhotoDetailScreen(
-                                    assets: allAssets.map((a) => AssetEntity(
-                                      id: a.id,
-                                      typeInt: AssetType.image.index,
-                                      width: a.width ?? 0,
-                                      height: a.height ?? 0,
-                                      duration: a.duration?.inSeconds ?? 0,
-                                    )).toList(),
-                                    initialIndex: allAssets.indexOf(asset),
+                                  builder: (_) => MultiBlocProvider(
+                                    providers: [
+                                      BlocProvider.value(value: galleryBloc),
+                                      BlocProvider.value(value: statusBloc),
+                                    ],
+                                    child: LocalPhotoDetailScreen(
+                                      assets: allAssets.map((a) => AssetEntity(
+                                        id: a.id,
+                                        typeInt: AssetType.image.index,
+                                        width: a.width ?? 0,
+                                        height: a.height ?? 0,
+                                        duration: a.duration?.inSeconds ?? 0,
+                                      )).toList(),
+                                      initialIndex: allAssets.indexOf(asset),
+                                    ),
                                   ),
                                 ),
                               );
@@ -304,12 +331,11 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                         );
                       },
                       childCount: group.assets.length,
-                      addAutomaticKeepAlives: true,
                     ),
                   ),
                 ),
               ];
-            }).toList(),
+            }),
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
         ),
