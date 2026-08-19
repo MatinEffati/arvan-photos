@@ -1,4 +1,6 @@
 import 'package:arvan_photos/core/theme/app_colors.dart';
+import 'package:arvan_photos/features/photos/domain/entities/backup_status.dart';
+import 'package:arvan_photos/features/photos/domain/entities/device_asset.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_state.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
@@ -16,7 +18,7 @@ class LocalPhotoGridItem extends StatelessWidget {
     super.key,
   });
 
-  final AssetEntity asset;
+  final DeviceAsset asset;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final bool isDeleting;
@@ -54,7 +56,13 @@ class LocalPhotoGridItem extends StatelessWidget {
                           child: Opacity(
                             opacity: isDeleting ? 0.5 : 1.0,
                             child: AssetEntityImage(
-                              asset,
+                              AssetEntity(
+                                id: asset.id,
+                                typeInt: AssetType.image.index,
+                                width: asset.width ?? 0,
+                                height: asset.height ?? 0,
+                                duration: asset.duration?.inSeconds ?? 0,
+                              ),
                               isOriginal: false,
                               thumbnailSize: const ThumbnailSize.square(200),
                               fit: BoxFit.cover,
@@ -105,11 +113,11 @@ class LocalPhotoGridItem extends StatelessWidget {
                       Positioned(
                         bottom: 4,
                         right: 4,
-                        child: BlocSelector<BackupStatusBloc, BackupStatusState, Map<String, dynamic>?>(
+                        child: BlocSelector<BackupStatusBloc, BackupStatusState, BackupStatus?>(
                           selector: (state) => state.statuses[asset.id],
                           builder: (context, statusInfo) {
-                            final status = statusInfo?['status'] as String?;
-                            final progress = (statusInfo?['progress'] as num?)?.toDouble() ?? 0.0;
+                            final status = statusInfo?.status;
+                            final progress = statusInfo?.progress ?? 0.0;
                             return _buildStatusIcon(status, progress);
                           },
                         ),

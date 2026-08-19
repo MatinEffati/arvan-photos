@@ -3,14 +3,16 @@ import 'dart:io';
 
 import 'package:arvan_photos/core/error/error_mapper.dart';
 import 'package:arvan_photos/core/error/failures.dart';
+import 'package:arvan_photos/core/network/dio_upload_cancel_token.dart';
 import 'package:arvan_photos/core/services/app_background_service.dart';
 import 'package:arvan_photos/features/cloud/data/datasources/cloud_remote_data_source.dart';
 import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart';
 import 'package:arvan_photos/features/photos/data/datasources/photo_key_generator.dart';
+import 'package:arvan_photos/features/photos/domain/entities/backup_status.dart';
+import 'package:arvan_photos/features/photos/domain/entities/upload_cancel_token.dart';
 import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
 import 'package:arvan_photos/features/photos/domain/repositories/photo_query_repository.dart';
 import 'package:dartz/dartz.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:injectable/injectable.dart';
 
@@ -28,22 +30,23 @@ class PhotoRepositoryImpl
   final BackupLocalDataSource backupLocalDataSource;
 
   final _statusController = StreamController<Map<String, dynamic>>.broadcast();
-  StreamSubscription? _backgroundSub;
 
   @override
   Future<Either<Failure, String>> uploadPhoto(
     String filePath, {
     void Function(double progress)? onProgress,
-    dynamic cancelToken,
+    UploadCancelToken? cancelToken,
   }) async {
     try {
       final key = keyGenerator.generateKey(filePath);
       final file = File(filePath);
       
+      final dioToken = cancelToken is DioUploadCancelToken ? cancelToken.dioToken : null;
+      
       await remoteDataSource.uploadPhoto(
         key, 
         file,
-        cancelToken: cancelToken is CancelToken ? cancelToken : null,
+        cancelToken: dioToken,
         onProgress: (sent, total) {
           if (onProgress != null && total > 0) {
             onProgress(sent / total);
@@ -118,9 +121,9 @@ class PhotoRepositoryImpl
     try {
       print('DEBUG_DELETE: Starting deletion for ${assetIds.length} assets');
       for (final id in assetIds) {
-        final statusMap = await backupLocalDataSource.getById(id);
-        if (statusMap != null && statusMap['remote_key'] != null) {
-          final key = statusMap['remote_key'] as String;
+        final statusItem = await backupLocalDataSource.getById(id);
+        if (statusItem != null && statusItem.remoteKey != null) {
+          final key = statusItem.remoteKey!;
           print('DEBUG_DELETE: Deleting from cloud: $key');
           await remoteDataSource.deletePhoto(key);
           await backupLocalDataSource.updateStatus(id, 'manually_removed');
@@ -158,12 +161,12 @@ class PhotoRepositoryImpl
 
   @override
   Future<List<BackupStatus>> getAllBackupStatuses() async {
-    final statuses = await backupLocalDataSource.getAll();
-    return statuses.map((e) => BackupStatus(
-      assetId: e['local_asset_id'] as String,
-      status: e['status'] as String,
-      progress: (e['progress'] as num?)?.toDouble() ?? 0.0,
-      remoteKey: e['remote_key'] as String?,
+    final items = await backupLocalDataSource.getAll();
+    return items.map((e) => BackupStatus(
+      assetId: e.localAssetId,
+      status: e.status,
+      progress: e.progress,
+      remoteKey: e.remoteKey,
     )).toList();
   }
 

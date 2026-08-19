@@ -1,22 +1,22 @@
 import 'package:equatable/equatable.dart';
 
 class DeviceAsset extends Equatable {
-  final String id;
-  final DateTime modifiedDateTime;
-  final int width;
-  final int height;
-  final Duration duration;
-  final int typeInt;
-
   const DeviceAsset({
     required this.id,
     required this.modifiedDateTime,
-    required this.width,
-    required this.height,
-    required this.duration,
-    required this.typeInt,
+    this.title,
+    this.width,
+    this.height,
+    this.duration,
   });
 
+  final String id;
+  final DateTime modifiedDateTime;
+  final String? title;
+  final int? width;
+  final int? height;
+  final Duration? duration;
+
   @override
-  List<Object?> get props => [id, modifiedDateTime, width, height, duration, typeInt];
+  List<Object?> get props => [id, modifiedDateTime, title, width, height, duration];
 }

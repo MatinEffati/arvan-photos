@@ -4,6 +4,9 @@ import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/de
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+/// This screen contains toggles for Layout, Shimmer, and Dates which are 
+/// intentionally non-functional per product decision (Scope 9.3 of gallery-backup-feature).
+/// They are kept as stubs for future implementation and UI completeness.
 class PhotosViewStubScreen extends StatefulWidget {
   const PhotosViewStubScreen({super.key});
 

@@ -1,5 +1,4 @@
 import 'package:arvan_photos/core/theme/app_colors.dart';
-import 'package:arvan_photos/features/photos/presentation/screens/photos_view_stub_screen.dart';
 import 'package:flutter/material.dart';
 
 class DateSectionHeader extends StatelessWidget {

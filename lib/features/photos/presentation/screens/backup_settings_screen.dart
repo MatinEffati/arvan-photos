@@ -155,7 +155,13 @@ class BackupSettingsScreen extends StatelessWidget {
                     width: 70,
                     height: 70,
                     child: AssetEntityImage(
-                      asset,
+                      AssetEntity(
+                        id: asset.id,
+                        typeInt: AssetType.image.index,
+                        width: asset.width ?? 0,
+                        height: asset.height ?? 0,
+                        duration: asset.duration?.inSeconds ?? 0,
+                      ),
                       isOriginal: false,
                       thumbnailSize: const ThumbnailSize.square(150),
                       fit: BoxFit.cover,

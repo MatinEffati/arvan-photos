@@ -17,24 +17,28 @@ class CloudLoadSuccess extends CloudState {
     required this.photos,
     this.hasReachedMax = false,
     this.nextContinuationToken,
+    this.errorMessage,
   });
 
   final List<CloudPhoto> photos;
   final bool hasReachedMax;
   final String? nextContinuationToken;
+  final String? errorMessage;
 
   @override
-  List<Object?> get props => [photos, hasReachedMax, nextContinuationToken];
+  List<Object?> get props => [photos, hasReachedMax, nextContinuationToken, errorMessage];
 
   CloudLoadSuccess copyWith({
     List<CloudPhoto>? photos,
     bool? hasReachedMax,
     String? nextContinuationToken,
+    String? errorMessage,
   }) {
     return CloudLoadSuccess(
       photos: photos ?? this.photos,
       hasReachedMax: hasReachedMax ?? this.hasReachedMax,
       nextContinuationToken: nextContinuationToken ?? this.nextContinuationToken,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 }

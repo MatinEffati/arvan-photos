@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:arvan_photos/features/photos/domain/entities/backup_status.dart';
 import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_event.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_state.dart';
@@ -14,7 +15,7 @@ class BackupStatusBloc extends Bloc<BackupStatusEvent, BackupStatusState> {
   }
 
   final PhotoCommandRepository _repository;
-  StreamSubscription? _statusSubscription;
+  StreamSubscription<Map<String, dynamic>>? _statusSubscription;
 
   Future<void> _onStarted(
     BackupStatusStarted event,
@@ -22,10 +23,9 @@ class BackupStatusBloc extends Bloc<BackupStatusEvent, BackupStatusState> {
   ) async {
     // Initial load of all statuses from DB
     final initialStatuses = await _repository.getAllBackupStatuses();
-    final Map<String, Map<String, dynamic>> statusMap = {};
+    final Map<String, BackupStatus> statusMap = {};
     for (final status in initialStatuses) {
-      final assetId = status['local_asset_id'] as String;
-      statusMap[assetId] = status;
+      statusMap[status.assetId] = status;
     }
     emit(state.copyWith(statuses: statusMap));
 
@@ -45,16 +45,19 @@ class BackupStatusBloc extends Bloc<BackupStatusEvent, BackupStatusState> {
 
     print('DEBUG_STATUS_BLOC: Updating asset $assetId to ${event.status['status']}');
 
-    final updatedStatuses = Map<String, Map<String, dynamic>>.from(state.statuses);
+    final updatedStatuses = Map<String, BackupStatus>.from(state.statuses);
     
     // Merge new status info into existing entry
-    final existing = updatedStatuses[assetId] ?? {};
-    updatedStatuses[assetId] = {
-      ...existing,
-      ...event.status,
-      'status': event.status['status'], // Map 'status' from event to DB format if needed
-      'progress': event.status['progress'],
-    };
+    final status = event.status['status'] as String;
+    final progress = (event.status['progress'] as num?)?.toDouble() ?? 0.0;
+    final remoteKey = event.status['remoteKey'] as String?;
+
+    updatedStatuses[assetId] = BackupStatus(
+      assetId: assetId,
+      status: status,
+      progress: progress,
+      remoteKey: remoteKey ?? updatedStatuses[assetId]?.remoteKey,
+    );
 
     emit(state.copyWith(statuses: updatedStatuses));
   }

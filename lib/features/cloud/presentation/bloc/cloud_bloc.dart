@@ -26,12 +26,15 @@ class CloudBloc extends Bloc<CloudEvent, CloudState> {
     }
     
     try {
-      final paginatedPhotos = await _getCloudPhotos();
-      emit(CloudLoadSuccess(
-        photos: paginatedPhotos.photos,
-        hasReachedMax: paginatedPhotos.nextContinuationToken == null,
-        nextContinuationToken: paginatedPhotos.nextContinuationToken,
-      ));
+      final result = await _getCloudPhotos();
+      result.fold(
+        (failure) => emit(CloudLoadFailure(failure.message)),
+        (paginatedPhotos) => emit(CloudLoadSuccess(
+          photos: paginatedPhotos.photos,
+          hasReachedMax: paginatedPhotos.nextContinuationToken == null,
+          nextContinuationToken: paginatedPhotos.nextContinuationToken,
+        )),
+      );
     } catch (e) {
       emit(CloudLoadFailure(e.toString()));
     }
@@ -45,18 +48,23 @@ class CloudBloc extends Bloc<CloudEvent, CloudState> {
     if (currentState is! CloudLoadSuccess || currentState.hasReachedMax) return;
 
     try {
-      final paginatedPhotos = await _getCloudPhotos(
+      final result = await _getCloudPhotos(
         continuationToken: currentState.nextContinuationToken,
       );
       
-      emit(CloudLoadSuccess(
-        photos: List.of(currentState.photos)..addAll(paginatedPhotos.photos),
-        hasReachedMax: paginatedPhotos.nextContinuationToken == null,
-        nextContinuationToken: paginatedPhotos.nextContinuationToken,
-      ));
+      result.fold(
+        (failure) {
+          // Keep current photos but add error message
+          emit(currentState.copyWith(errorMessage: failure.message));
+        },
+        (paginatedPhotos) => emit(CloudLoadSuccess(
+          photos: List.of(currentState.photos)..addAll(paginatedPhotos.photos),
+          hasReachedMax: paginatedPhotos.nextContinuationToken == null,
+          nextContinuationToken: paginatedPhotos.nextContinuationToken,
+        )),
+      );
     } catch (e) {
-      // Handle error without losing current photos if needed, 
-      // but for simplicity we'll just keep current state
+      emit(currentState.copyWith(errorMessage: e.toString()));
     }
   }
 }

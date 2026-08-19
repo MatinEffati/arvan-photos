@@ -1,10 +1,15 @@
 import 'dart:async';
 
-import 'package:arvan_photos/features/photos/data/datasources/device_gallery_datasource.dart';
-import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart';
+import 'package:arvan_photos/features/photos/domain/entities/device_asset.dart';
 import 'package:arvan_photos/features/photos/domain/entities/local_photo_group.dart';
-import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/delete_backup_from_cloud_usecase.dart';
 import 'package:arvan_photos/features/photos/domain/usecases/enqueue_backup_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_asset_path_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_backup_status_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_cloud_count_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_local_gallery_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_synced_ids_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/watch_backup_status_usecase.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/services.dart';
@@ -20,10 +25,14 @@ part 'device_gallery_state.dart';
 @injectable
 class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
   DeviceGalleryBloc(
-    this._dataSource,
-    this._enqueueBackupUseCase,
-    this._backupLocalDataSource,
-    this._repository,
+    this._getLocalGallery,
+    this._getBackupStatuses,
+    this._getSyncedIds,
+    this._getAssetPath,
+    this._getCloudCount,
+    this._enqueueBackup,
+    this._deleteBackup,
+    this._watchBackupStatus,
     this._prefs,
   ) : super(DeviceGalleryInitial()) {
     on<DeviceGalleryRequested>(_onRequested);
@@ -36,10 +45,8 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     on<DeviceGallerySettingsRequested>(_onSettingsRequested);
     on<DeviceGalleryGridColumnsChanged>(_onGridColumnsChanged);
 
-    _statusSubscription = _repository.watchBackupStatus().listen((event) {
+    _statusSubscription = _watchBackupStatus().listen((event) {
       final status = event['status'] as String?;
-      // Only recount cloud items when a file is actually synced or removed.
-      // This prevents constant API calls during upload progress updates.
       if (status == 'synced' || status == 'manually_removed') {
         _debounceTimer?.cancel();
         _debounceTimer = Timer(const Duration(seconds: 2), () {
@@ -52,10 +59,14 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     PhotoManager.startChangeNotify();
   }
 
-  final DeviceGalleryDataSource _dataSource;
-  final EnqueueBackupUseCase _enqueueBackupUseCase;
-  final BackupLocalDataSource _backupLocalDataSource;
-  final PhotoCommandRepository _repository;
+  final GetLocalGalleryUseCase _getLocalGallery;
+  final GetBackupStatusUseCase _getBackupStatuses;
+  final GetSyncedIdsUseCase _getSyncedIds;
+  final GetAssetPathUseCase _getAssetPath;
+  final GetCloudCountUseCase _getCloudCount;
+  final EnqueueBackupUseCase _enqueueBackup;
+  final DeleteBackupFromCloudUseCase _deleteBackup;
+  final WatchBackupStatusUseCase _watchBackupStatus;
   final SharedPreferences _prefs;
   StreamSubscription? _statusSubscription;
   Timer? _debounceTimer;
@@ -84,29 +95,29 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     if (!isSilent) emit(DeviceGalleryLoadInProgress());
     
     try {
-      final assets = await _dataSource.getLocalAssets();
-      
-      // If there are many assets, grouping them can be expensive.
-      // We do it once here and store it.
+      final assets = await _getLocalGallery();
       final groups = await _groupAssetsAsync(assets);
       
       final isAutoBackupEnabled = _prefs.getBool(_autoBackupKey) ?? false;
       final gridColumns = _prefs.getInt(_gridColumnsKey) ?? 3;
-      final syncedIds = await _backupLocalDataSource.getSyncedIds();
+      final syncedIds = await _getSyncedIds();
       final syncedIdsSet = syncedIds.toSet();
       
-      final allQueue = await _backupLocalDataSource.getAll();
-      final inQueueSet = allQueue.map((e) => e['local_asset_id'] as String).toSet();
+      final allStatuses = await _getBackupStatuses();
+      final inQueueSet = allStatuses.map((e) => e.assetId).toSet();
 
       final notSyncedAssets = assets.where((a) => !syncedIdsSet.contains(a.id)).toList();
       
+      final cloudCountResult = await _getCloudCount();
+      final cloudCount = cloudCountResult.fold((_) => 0, (count) => count);
+
       emit(DeviceGalleryLoadSuccess(
         groups: groups,
         selectedAssetIds: const {},
         isAutoBackupEnabled: isAutoBackupEnabled,
         notBackedUpCount: notSyncedAssets.length,
         notBackedUpThumbnails: notSyncedAssets.take(4).toList(),
-        cloudCount: 0,
+        cloudCount: cloudCount,
         gridColumns: gridColumns,
       ));
 
@@ -119,13 +130,13 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
         if (toEnqueueAssets.isNotEmpty) {
           final toEnqueue = <Map<String, String>>[];
           for (final asset in toEnqueueAssets) {
-            final file = await asset.file;
-            if (file != null) {
-              toEnqueue.add({'id': asset.id, 'path': file.path});
+            final path = await _getAssetPath(asset.id);
+            if (path != null) {
+              toEnqueue.add({'id': asset.id, 'path': path});
             }
           }
           if (toEnqueue.isNotEmpty) {
-            await _enqueueBackupUseCase(toEnqueue);
+            await _enqueueBackup(toEnqueue);
           }
         }
       }
@@ -134,13 +145,12 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     }
   }
 
-  Future<List<LocalPhotoGroup>> _groupAssetsAsync(List<AssetEntity> assets) async {
-    // For now, we perform grouping in a way that minimizes DateFormat creation
+  Future<List<LocalPhotoGroup>> _groupAssetsAsync(List<DeviceAsset> assets) async {
     return _groupAssetsInternal(assets);
   }
 
-  static List<LocalPhotoGroup> _groupAssetsInternal(List<AssetEntity> assets) {
-    final grouped = <String, List<AssetEntity>>{};
+  static List<LocalPhotoGroup> _groupAssetsInternal(List<DeviceAsset> assets) {
+    final grouped = <String, List<DeviceAsset>>{};
     final DateFormat formatter = DateFormat('yyyy-MM-dd');
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -263,16 +273,16 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
       final toEnqueue = <Map<String, String>>[];
       for (final asset in assets) {
-        final file = await asset.file;
-        if (file != null) {
-          toEnqueue.add({'id': asset.id, 'path': file.path});
+        final path = await _getAssetPath(asset.id);
+        if (path != null) {
+          toEnqueue.add({'id': asset.id, 'path': path});
         }
       }
 
-      final result = await _enqueueBackupUseCase(toEnqueue);
+      final result = await _enqueueBackup(toEnqueue);
 
       result.fold(
-        (failure) => emit(DeviceGalleryLoadFailure(failure.toString())),
+        (failure) => emit(DeviceGalleryLoadFailure(failure.message)),
         (_) => emit(DeviceGalleryBackupSuccess(
           groups: currentState.groups,
           selectedAssetIds: const {},
@@ -300,7 +310,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
         notBackedUpThumbnails: currentState.notBackedUpThumbnails,
       ));
 
-      final result = await _repository.deleteBackup(event.assetIds);
+      final result = await _deleteBackup(event.assetIds);
       
       result.fold(
         (failure) {
@@ -308,8 +318,6 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
             deletingAssetIds: {},
             errorMessage: failure.message,
           ));
-          // Reset error message immediately so it doesn't reappear on next state change
-          emit(currentState.copyWith(deletingAssetIds: {}));
         },
         (_) {
           add(const DeviceGalleryRequested());
@@ -331,7 +339,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
       if (event.isEnabled) {
         final allAssets = currentState.groups.expand((g) => g.assets).toList();
-        final syncedIds = await _backupLocalDataSource.getSyncedIds();
+        final syncedIds = await _getSyncedIds();
         final syncedIdsSet = syncedIds.toSet();
 
         final toEnqueueAssets =
@@ -340,13 +348,13 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
         if (toEnqueueAssets.isNotEmpty) {
           final toEnqueue = <Map<String, String>>[];
           for (final asset in toEnqueueAssets) {
-            final file = await asset.file;
-            if (file != null) {
-              toEnqueue.add({'id': asset.id, 'path': file.path});
+            final path = await _getAssetPath(asset.id);
+            if (path != null) {
+              toEnqueue.add({'id': asset.id, 'path': path});
             }
           }
           if (toEnqueue.isNotEmpty) {
-            await _enqueueBackupUseCase(toEnqueue);
+            await _enqueueBackup(toEnqueue);
           }
         }
       }
@@ -359,16 +367,19 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
   ) async {
     if (state is DeviceGalleryLoadSuccess) {
       final currentState = state as DeviceGalleryLoadSuccess;
-      final syncedIds = await _backupLocalDataSource.getSyncedIds();
+      final syncedIds = await _getSyncedIds();
       final syncedIdsSet = syncedIds.toSet();
       
       final allAssets = currentState.groups.expand((g) => g.assets).toList();
       final notSyncedAssets = allAssets.where((a) => !syncedIdsSet.contains(a.id)).toList();
 
+      final cloudCountResult = await _getCloudCount();
+      final cloudCount = cloudCountResult.fold((_) => 0, (count) => count);
+
       emit(currentState.copyWith(
         notBackedUpCount: notSyncedAssets.length,
         notBackedUpThumbnails: notSyncedAssets.take(4).toList(),
-        cloudCount: 0,
+        cloudCount: cloudCount,
       ));
     }
   }

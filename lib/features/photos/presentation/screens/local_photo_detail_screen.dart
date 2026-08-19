@@ -69,7 +69,8 @@ class _LocalPhotoDetailScreenState extends State<LocalPhotoDetailScreen> {
         return BlocBuilder<BackupStatusBloc, BackupStatusState>(
           builder: (context, statusState) {
             final currentAsset = widget.assets[_currentIndex];
-            final status = statusState.statuses[currentAsset.id]?['status'] as String?;
+            final statusItem = statusState.statuses[currentAsset.id];
+            final status = statusItem?.status;
             final isDeleting = galleryState is DeviceGalleryLoadSuccess && galleryState.deletingAssetIds.contains(currentAsset.id);
 
             return Scaffold(

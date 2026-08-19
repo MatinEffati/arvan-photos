@@ -2,22 +2,15 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:arvan_photos/core/config/app_config.dart';
-import 'package:arvan_photos/core/database/app_database.dart';
-import 'package:arvan_photos/core/network/arvan_s3_client.dart';
+import 'package:arvan_photos/core/di/injection.dart';
+import 'package:arvan_photos/core/network/dio_upload_cancel_token.dart';
 import 'package:arvan_photos/core/services/notification_service.dart';
-import 'package:arvan_photos/features/cloud/data/datasources/cloud_remote_data_source.dart';
 import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart';
-import 'package:arvan_photos/features/photos/data/datasources/photo_key_generator.dart';
 import 'package:arvan_photos/features/photos/data/repositories/photo_repository_impl.dart';
 import 'package:arvan_photos/features/photos/domain/entities/upload_task.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:photo_manager/photo_manager.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 class AppBackgroundService {
@@ -75,30 +68,15 @@ Future<void> onStart(ServiceInstance service) async {
       await dotenv.load(fileName: 'assets/env');
     } catch (_) {}
 
-    final db = await AppDatabase.open();
-    debugPrint('BACKUP_SERVICE: Database opened');
+    await configureDependencies();
     
-    final dio = Dio();
-    if (kDebugMode) {
-      dio.interceptors.add(
-        PrettyDioLogger(requestHeader: true, requestBody: true),
-      );
-    }
-    final config = AppConfig();
-    final s3Client = ArvanS3Client(dio, config);
-    final remoteDataSource = CloudRemoteDataSourceImpl(s3Client);
-    final keyGenerator = S3PhotoKeyGenerator();
-    final backupLocalDataSource = BackupLocalDataSourceImpl(db);
-
-    final repository = PhotoRepositoryImpl(
-      remoteDataSource,
-      keyGenerator,
-      backupLocalDataSource,
-    );
+    final db = getIt<Database>();
+    final backupLocalDataSource = getIt<BackupLocalDataSource>();
+    final repository = getIt<PhotoRepositoryImpl>();
 
     var isRunning = true;
     var isPaused = false;
-    final activeUploads = <String, CancelToken>{};
+    final activeUploads = <String, DioUploadCancelToken>{};
     var lastQueueTotal = 0;
 
     service.on('stopService').listen((event) async {
@@ -242,9 +220,9 @@ Future<void> _startBackupUpload({
   required ServiceInstance service,
   required BackupLocalDataSource localDataSource,
   required PhotoRepositoryImpl repository,
-  required Map<String, CancelToken> activeUploads,
+  required Map<String, DioUploadCancelToken> activeUploads,
 }) async {
-  final cancelToken = CancelToken();
+  final cancelToken = DioUploadCancelToken();
   activeUploads[assetId] = cancelToken;
 
   await localDataSource.updateStatus(assetId, 'uploading', progress: 0);
@@ -255,8 +233,8 @@ Future<void> _startBackupUpload({
   });
 
   try {
-    final taskMap = await localDataSource.getById(assetId);
-    final filePath = taskMap?['file_path'] as String?;
+    final task = await localDataSource.getById(assetId);
+    final filePath = task?.filePath;
 
     if (filePath == null) {
       throw Exception('File path not found in database for asset $assetId');
@@ -320,15 +298,14 @@ Future<void> _startManualUpload({
   required ServiceInstance service,
   required Database db,
   required PhotoRepositoryImpl repository,
-  required Map<String, CancelToken> activeUploads,
+  required Map<String, DioUploadCancelToken> activeUploads,
   required BackupLocalDataSource backupLocalDataSource,
 }) async {
   final taskId = taskMap['id']! as String;
   final filePath = taskMap['file_path']! as String;
   final localAssetId = taskMap['local_asset_id'] as String?;
-  final file = File(filePath);
-
-  final cancelToken = CancelToken();
+  
+  final cancelToken = DioUploadCancelToken();
   activeUploads[taskId] = cancelToken;
 
   await db.update(

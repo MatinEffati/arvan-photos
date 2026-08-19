@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:arvan_photos/core/error/failures.dart';
 import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
 import 'package:dartz/dartz.dart';
@@ -9,7 +8,7 @@ class EditPhotoUseCase {
   EditPhotoUseCase(this.repository);
   final PhotoCommandRepository repository;
 
-  Future<Either<Failure, Unit>> call(String key, File editedFile) async {
-    return repository.editPhoto(key, editedFile);
+  Future<Either<Failure, Unit>> call(String key, String editedFilePath) async {
+    return repository.editPhoto(key, editedFilePath);
   }
 }

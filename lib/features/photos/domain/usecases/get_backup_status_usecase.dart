@@ -5,29 +5,9 @@ import 'package:injectable/injectable.dart';
 @injectable
 class GetBackupStatusUseCase {
   GetBackupStatusUseCase(this._repository);
-
   final PhotoCommandRepository _repository;
 
-  Stream<BackupStatus> watch() {
-    return _repository.watchBackupStatus().map((event) => BackupStatus(
-      assetId: event['assetId'] as String,
-      status: event['status'] as String,
-      progress: (event['progress'] as num?)?.toDouble() ?? 0.0,
-      remoteKey: event['remoteKey'] as String?,
-    ));
-  }
-
-  Future<List<BackupStatus>> getAll() async {
-    final statuses = await _repository.getAllBackupStatuses();
-    return statuses.map((event) => BackupStatus(
-      assetId: event['local_asset_id'] as String,
-      status: event['status'] as String,
-      progress: (event['progress'] as num?)?.toDouble() ?? 0.0,
-      remoteKey: event['remote_key'] as String?,
-    )).toList();
-  }
-
-  Future<List<String>> getSyncedIds() {
-    return _repository.getSyncedIds();
+  Future<List<BackupStatus>> call() {
+    return _repository.getAllBackupStatuses();
   }
 }

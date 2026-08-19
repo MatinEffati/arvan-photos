@@ -10,6 +10,7 @@ import 'package:arvan_photos/features/photos/presentation/widgets/date_section_h
 import 'package:arvan_photos/features/photos/presentation/widgets/local_photo_grid_item.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:photo_manager/photo_manager.dart';
 
 class DeviceGalleryScreen extends StatefulWidget {
   const DeviceGalleryScreen({super.key});
@@ -45,7 +46,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
   }
 
   void _confirmBulkDeleteCloud(BuildContext context, List<String> assetIds, BackupStatusState statusState) {
-    final syncedIds = assetIds.where((id) => statusState.statuses[id]?['status'] == 'synced').toList();
+    final syncedIds = assetIds.where((id) => statusState.statuses[id]?.status == 'synced').toList();
     if (syncedIds.isEmpty) return;
 
     showDialog<void>(
@@ -127,7 +128,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
             // If any selected item is synced, show delete from cloud
             BlocBuilder<BackupStatusBloc, BackupStatusState>(
               builder: (context, statusState) {
-                final anySynced = state.selectedAssetIds.any((id) => statusState.statuses[id]?['status'] == 'synced');
+                final anySynced = state.selectedAssetIds.any((id) => statusState.statuses[id]?.status == 'synced');
                 if (anySynced) {
                   return IconButton(
                     icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
@@ -280,9 +281,15 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                               final allAssets = state.groups.expand((g) => g.assets).toList();
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
+                                MaterialPageRoute<void>(
                                   builder: (_) => LocalPhotoDetailScreen(
-                                    assets: allAssets,
+                                    assets: allAssets.map((a) => AssetEntity(
+                                      id: a.id,
+                                      typeInt: AssetType.image.index,
+                                      width: a.width ?? 0,
+                                      height: a.height ?? 0,
+                                      duration: a.duration?.inSeconds ?? 0,
+                                    )).toList(),
                                     initialIndex: allAssets.indexOf(asset),
                                   ),
                                 ),

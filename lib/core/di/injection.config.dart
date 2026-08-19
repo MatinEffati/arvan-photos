@@ -10,8 +10,8 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:arvan_photos/core/config/app_config.dart' as _i835;
-import 'package:arvan_photos/core/database/database_module.dart' as _i62;
 import 'package:arvan_photos/core/di/core_module.dart' as _i234;
+import 'package:arvan_photos/core/di/database_module.dart' as _i42;
 import 'package:arvan_photos/core/di/repository_module.dart' as _i774;
 import 'package:arvan_photos/core/network/arvan_s3_client.dart' as _i209;
 import 'package:arvan_photos/features/cloud/data/datasources/cloud_remote_data_source.dart'
@@ -30,38 +30,50 @@ import 'package:arvan_photos/features/photos/data/datasources/device_gallery_dat
     as _i916;
 import 'package:arvan_photos/features/photos/data/datasources/photo_key_generator.dart'
     as _i871;
-import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data_source.dart'
-    as _i540;
-import 'package:arvan_photos/features/photos/data/datasources/photos_remote_data_source_impl.dart'
-    as _i1058;
 import 'package:arvan_photos/features/photos/data/datasources/upload_local_datasource.dart'
     as _i638;
+import 'package:arvan_photos/features/photos/data/repositories/device_gallery_repository_impl.dart'
+    as _i986;
 import 'package:arvan_photos/features/photos/data/repositories/photo_repository_impl.dart'
     as _i207;
+import 'package:arvan_photos/features/photos/data/repositories/upload_repository_impl.dart'
+    as _i102;
+import 'package:arvan_photos/features/photos/domain/repositories/device_gallery_repository.dart'
+    as _i52;
 import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart'
     as _i666;
 import 'package:arvan_photos/features/photos/domain/repositories/photo_query_repository.dart'
     as _i591;
-import 'package:arvan_photos/features/photos/domain/usecases/delete_multiple_photos_usecase.dart'
-    as _i470;
+import 'package:arvan_photos/features/photos/domain/repositories/upload_repository.dart'
+    as _i1003;
+import 'package:arvan_photos/features/photos/domain/usecases/delete_backup_from_cloud_usecase.dart'
+    as _i123;
 import 'package:arvan_photos/features/photos/domain/usecases/delete_photo_usecase.dart'
     as _i684;
 import 'package:arvan_photos/features/photos/domain/usecases/edit_photo_usecase.dart'
     as _i410;
 import 'package:arvan_photos/features/photos/domain/usecases/enqueue_backup_usecase.dart'
     as _i930;
-import 'package:arvan_photos/features/photos/domain/usecases/get_photos_usecase.dart'
-    as _i1014;
-import 'package:arvan_photos/features/photos/domain/usecases/upload_photo_usecase.dart'
-    as _i209;
+import 'package:arvan_photos/features/photos/domain/usecases/enqueue_upload_usecase.dart'
+    as _i744;
+import 'package:arvan_photos/features/photos/domain/usecases/get_asset_path_usecase.dart'
+    as _i926;
+import 'package:arvan_photos/features/photos/domain/usecases/get_backup_status_usecase.dart'
+    as _i66;
+import 'package:arvan_photos/features/photos/domain/usecases/get_cloud_count_usecase.dart'
+    as _i1005;
+import 'package:arvan_photos/features/photos/domain/usecases/get_local_gallery_usecase.dart'
+    as _i586;
+import 'package:arvan_photos/features/photos/domain/usecases/get_synced_ids_usecase.dart'
+    as _i183;
+import 'package:arvan_photos/features/photos/domain/usecases/get_upload_tasks_usecase.dart'
+    as _i789;
+import 'package:arvan_photos/features/photos/domain/usecases/watch_backup_status_usecase.dart'
+    as _i562;
 import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart'
     as _i51;
-import 'package:arvan_photos/features/photos/presentation/bloc/detail/photo_detail_cubit.dart'
-    as _i225;
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart'
     as _i725;
-import 'package:arvan_photos/features/photos/presentation/bloc/photos/photos_bloc.dart'
-    as _i303;
 import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_bloc.dart'
     as _i73;
 import 'package:dio/dio.dart' as _i361;
@@ -77,15 +89,15 @@ extension GetItInjectableX on _i174.GetIt {
     _i526.EnvironmentFilter? environmentFilter,
   }) async {
     final gh = _i526.GetItHelper(this, environment, environmentFilter);
-    final databaseModule = _$DatabaseModule();
     final coreModule = _$CoreModule();
+    final databaseModule = _$DatabaseModule();
     final repositoryModule = _$RepositoryModule();
-    await gh.factoryAsync<_i779.Database>(
-      () => databaseModule.database,
-      preResolve: true,
-    );
     await gh.factoryAsync<_i460.SharedPreferences>(
       () => coreModule.prefs,
+      preResolve: true,
+    );
+    await gh.factoryAsync<_i779.Database>(
+      () => databaseModule.database,
       preResolve: true,
     );
     gh.lazySingleton<_i835.AppConfig>(() => _i835.AppConfig());
@@ -105,23 +117,43 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i871.PhotoKeyGenerator>(
       () => _i871.S3PhotoKeyGenerator(),
     );
-    gh.factory<_i73.UploadBloc>(
-      () => _i73.UploadBloc(gh<_i638.UploadLocalDataSource>()),
+    gh.lazySingleton<_i52.DeviceGalleryRepository>(
+      () => _i986.DeviceGalleryRepositoryImpl(
+        gh<_i916.DeviceGalleryDataSource>(),
+      ),
+    );
+    gh.factory<_i926.GetAssetPathUseCase>(
+      () => _i926.GetAssetPathUseCase(gh<_i52.DeviceGalleryRepository>()),
+    );
+    gh.factory<_i586.GetLocalGalleryUseCase>(
+      () => _i586.GetLocalGalleryUseCase(gh<_i52.DeviceGalleryRepository>()),
+    );
+    gh.lazySingleton<_i1003.UploadRepository>(
+      () => _i102.UploadRepositoryImpl(gh<_i638.UploadLocalDataSource>()),
     );
     gh.lazySingleton<_i733.CloudRemoteDataSource>(
       () => _i733.CloudRemoteDataSourceImpl(gh<_i209.ArvanS3Client>()),
     );
-    gh.lazySingleton<_i540.PhotosRemoteDataSource>(
-      () => _i1058.PhotosRemoteDataSourceImpl(gh<_i209.ArvanS3Client>()),
+    gh.factory<_i744.EnqueueUploadUseCase>(
+      () => _i744.EnqueueUploadUseCase(gh<_i1003.UploadRepository>()),
+    );
+    gh.factory<_i789.GetUploadTasksUseCase>(
+      () => _i789.GetUploadTasksUseCase(gh<_i1003.UploadRepository>()),
+    );
+    gh.lazySingleton<_i207.PhotoRepositoryImpl>(
+      () => _i207.PhotoRepositoryImpl(
+        gh<_i733.CloudRemoteDataSource>(),
+        gh<_i871.PhotoKeyGenerator>(),
+        gh<_i485.BackupLocalDataSource>(),
+      ),
     );
     gh.lazySingleton<_i914.CloudRepository>(
       () => _i342.CloudRepositoryImpl(gh<_i733.CloudRemoteDataSource>()),
     );
-    gh.lazySingleton<_i207.PhotoRepositoryImpl>(
-      () => _i207.PhotoRepositoryImpl(
-        gh<_i540.PhotosRemoteDataSource>(),
-        gh<_i871.PhotoKeyGenerator>(),
-        gh<_i485.BackupLocalDataSource>(),
+    gh.factory<_i73.UploadBloc>(
+      () => _i73.UploadBloc(
+        gh<_i744.EnqueueUploadUseCase>(),
+        gh<_i789.GetUploadTasksUseCase>(),
       ),
     );
     gh.lazySingleton<_i591.PhotoQueryRepository>(
@@ -130,11 +162,22 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i666.PhotoCommandRepository>(
       () => repositoryModule.commandRepository(gh<_i207.PhotoRepositoryImpl>()),
     );
-    gh.factory<_i1014.GetPhotosUseCase>(
-      () => _i1014.GetPhotosUseCase(gh<_i591.PhotoQueryRepository>()),
+    gh.factory<_i123.DeleteBackupFromCloudUseCase>(
+      () => _i123.DeleteBackupFromCloudUseCase(
+        gh<_i666.PhotoCommandRepository>(),
+      ),
     );
     gh.factory<_i930.EnqueueBackupUseCase>(
       () => _i930.EnqueueBackupUseCase(gh<_i666.PhotoCommandRepository>()),
+    );
+    gh.factory<_i66.GetBackupStatusUseCase>(
+      () => _i66.GetBackupStatusUseCase(gh<_i666.PhotoCommandRepository>()),
+    );
+    gh.factory<_i183.GetSyncedIdsUseCase>(
+      () => _i183.GetSyncedIdsUseCase(gh<_i666.PhotoCommandRepository>()),
+    );
+    gh.factory<_i562.WatchBackupStatusUseCase>(
+      () => _i562.WatchBackupStatusUseCase(gh<_i666.PhotoCommandRepository>()),
     );
     gh.factory<_i51.BackupStatusBloc>(
       () => _i51.BackupStatusBloc(gh<_i666.PhotoCommandRepository>()),
@@ -142,49 +185,37 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i717.GetCloudPhotos>(
       () => _i717.GetCloudPhotos(gh<_i914.CloudRepository>()),
     );
-    gh.factory<_i470.DeleteMultiplePhotosUseCase>(
-      () =>
-          _i470.DeleteMultiplePhotosUseCase(gh<_i666.PhotoCommandRepository>()),
-    );
     gh.factory<_i684.DeletePhotoUseCase>(
       () => _i684.DeletePhotoUseCase(gh<_i666.PhotoCommandRepository>()),
     );
     gh.factory<_i410.EditPhotoUseCase>(
       () => _i410.EditPhotoUseCase(gh<_i666.PhotoCommandRepository>()),
     );
-    gh.factory<_i209.UploadPhotoUseCase>(
-      () => _i209.UploadPhotoUseCase(gh<_i666.PhotoCommandRepository>()),
-    );
-    gh.factory<_i725.DeviceGalleryBloc>(
-      () => _i725.DeviceGalleryBloc(
-        gh<_i916.DeviceGalleryDataSource>(),
-        gh<_i930.EnqueueBackupUseCase>(),
-        gh<_i485.BackupLocalDataSource>(),
-        gh<_i666.PhotoCommandRepository>(),
-        gh<_i460.SharedPreferences>(),
-      ),
-    );
-    gh.factory<_i303.PhotosBloc>(
-      () => _i303.PhotosBloc(
-        gh<_i1014.GetPhotosUseCase>(),
-        gh<_i470.DeleteMultiplePhotosUseCase>(),
-      ),
+    gh.factory<_i1005.GetCloudCountUseCase>(
+      () => _i1005.GetCloudCountUseCase(gh<_i591.PhotoQueryRepository>()),
     );
     gh.factory<_i833.CloudBloc>(
       () => _i833.CloudBloc(gh<_i717.GetCloudPhotos>()),
     );
-    gh.factory<_i225.PhotoDetailCubit>(
-      () => _i225.PhotoDetailCubit(
-        gh<_i684.DeletePhotoUseCase>(),
-        gh<_i410.EditPhotoUseCase>(),
+    gh.factory<_i725.DeviceGalleryBloc>(
+      () => _i725.DeviceGalleryBloc(
+        gh<_i586.GetLocalGalleryUseCase>(),
+        gh<_i66.GetBackupStatusUseCase>(),
+        gh<_i183.GetSyncedIdsUseCase>(),
+        gh<_i926.GetAssetPathUseCase>(),
+        gh<_i1005.GetCloudCountUseCase>(),
+        gh<_i930.EnqueueBackupUseCase>(),
+        gh<_i123.DeleteBackupFromCloudUseCase>(),
+        gh<_i562.WatchBackupStatusUseCase>(),
+        gh<_i460.SharedPreferences>(),
       ),
     );
     return this;
   }
 }
 
-class _$DatabaseModule extends _i62.DatabaseModule {}
-
 class _$CoreModule extends _i234.CoreModule {}
+
+class _$DatabaseModule extends _i42.DatabaseModule {}
 
 class _$RepositoryModule extends _i774.RepositoryModule {}

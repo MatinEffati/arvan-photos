@@ -6,7 +6,6 @@ import 'package:injectable/injectable.dart';
 @injectable
 class DeleteBackupFromCloudUseCase {
   DeleteBackupFromCloudUseCase(this._repository);
-
   final PhotoCommandRepository _repository;
 
   Future<Either<Failure, Unit>> call(List<String> assetIds) {

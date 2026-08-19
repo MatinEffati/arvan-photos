@@ -1,43 +1,63 @@
-import 'package:arvan_photos/features/photos/data/datasources/device_gallery_datasource.dart';
-import 'package:arvan_photos/features/photos/data/datasources/backup_local_datasource.dart';
-import 'package:arvan_photos/features/photos/domain/repositories/photo_command_repository.dart';
+import 'package:arvan_photos/features/photos/domain/entities/device_asset.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/delete_backup_from_cloud_usecase.dart';
 import 'package:arvan_photos/features/photos/domain/usecases/enqueue_backup_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_asset_path_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_backup_status_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_cloud_count_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_local_gallery_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/get_synced_ids_usecase.dart';
+import 'package:arvan_photos/features/photos/domain/usecases/watch_backup_status_usecase.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:bloc_test/bloc_test.dart';
+import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class MockDeviceGalleryDataSource extends Mock implements DeviceGalleryDataSource {}
+class MockGetLocalGalleryUseCase extends Mock implements GetLocalGalleryUseCase {}
+class MockGetBackupStatusUseCase extends Mock implements GetBackupStatusUseCase {}
+class MockGetSyncedIdsUseCase extends Mock implements GetSyncedIdsUseCase {}
+class MockGetAssetPathUseCase extends Mock implements GetAssetPathUseCase {}
+class MockGetCloudCountUseCase extends Mock implements GetCloudCountUseCase {}
 class MockEnqueueBackupUseCase extends Mock implements EnqueueBackupUseCase {}
-class MockBackupLocalDataSource extends Mock implements BackupLocalDataSource {}
-class MockPhotoCommandRepository extends Mock implements PhotoCommandRepository {}
+class MockDeleteBackupFromCloudUseCase extends Mock implements DeleteBackupFromCloudUseCase {}
+class MockWatchBackupStatusUseCase extends Mock implements WatchBackupStatusUseCase {}
 class MockSharedPreferences extends Mock implements SharedPreferences {}
-class MockAssetEntity extends Mock implements AssetEntity {}
 
 void main() {
   late DeviceGalleryBloc bloc;
-  late MockDeviceGalleryDataSource mockDataSource;
-  late MockEnqueueBackupUseCase mockEnqueueUseCase;
-  late MockBackupLocalDataSource mockBackupLocalDataSource;
-  late MockPhotoCommandRepository mockRepository;
+  late MockGetLocalGalleryUseCase mockGetLocalGallery;
+  late MockGetBackupStatusUseCase mockGetBackupStatuses;
+  late MockGetSyncedIdsUseCase mockGetSyncedIds;
+  late MockGetAssetPathUseCase mockGetAssetPath;
+  late MockGetCloudCountUseCase mockGetCloudCount;
+  late MockEnqueueBackupUseCase mockEnqueueBackup;
+  late MockDeleteBackupFromCloudUseCase mockDeleteBackup;
+  late MockWatchBackupStatusUseCase mockWatchBackupStatus;
   late MockSharedPreferences mockPrefs;
 
   setUp(() {
-    mockDataSource = MockDeviceGalleryDataSource();
-    mockEnqueueUseCase = MockEnqueueBackupUseCase();
-    mockBackupLocalDataSource = MockBackupLocalDataSource();
-    mockRepository = MockPhotoCommandRepository();
+    mockGetLocalGallery = MockGetLocalGalleryUseCase();
+    mockGetBackupStatuses = MockGetBackupStatusUseCase();
+    mockGetSyncedIds = MockGetSyncedIdsUseCase();
+    mockGetAssetPath = MockGetAssetPathUseCase();
+    mockGetCloudCount = MockGetCloudCountUseCase();
+    mockEnqueueBackup = MockEnqueueBackupUseCase();
+    mockDeleteBackup = MockDeleteBackupFromCloudUseCase();
+    mockWatchBackupStatus = MockWatchBackupStatusUseCase();
     mockPrefs = MockSharedPreferences();
 
-    when(() => mockRepository.watchBackupStatus()).thenAnswer((_) => const Stream.empty());
+    when(() => mockWatchBackupStatus()).thenAnswer((_) => const Stream.empty());
 
     bloc = DeviceGalleryBloc(
-      mockDataSource,
-      mockEnqueueUseCase,
-      mockBackupLocalDataSource,
-      mockRepository,
+      mockGetLocalGallery,
+      mockGetBackupStatuses,
+      mockGetSyncedIds,
+      mockGetAssetPath,
+      mockGetCloudCount,
+      mockEnqueueBackup,
+      mockDeleteBackup,
+      mockWatchBackupStatus,
       mockPrefs,
     );
   });
@@ -48,28 +68,20 @@ void main() {
 
   group('DeviceGalleryBloc', () {
     final now = DateTime.now();
-    final todayAsset = MockAssetEntity();
-    final yesterdayAsset = MockAssetEntity();
-    final olderAsset = MockAssetEntity();
-
-    setUp(() {
-      when(() => todayAsset.createDateTime).thenReturn(now);
-      when(() => todayAsset.id).thenReturn('today_id');
-      
-      when(() => yesterdayAsset.createDateTime).thenReturn(now.subtract(const Duration(days: 1)));
-      when(() => yesterdayAsset.id).thenReturn('yesterday_id');
-
-      when(() => olderAsset.createDateTime).thenReturn(DateTime(2023, 1, 1));
-      when(() => olderAsset.id).thenReturn('older_id');
-    });
+    final todayAsset = DeviceAsset(id: 'today_id', modifiedDateTime: now);
+    final yesterdayAsset = DeviceAsset(id: 'yesterday_id', modifiedDateTime: now.subtract(const Duration(days: 1)));
+    final olderAsset = DeviceAsset(id: 'older_id', modifiedDateTime: DateTime(2023, 1, 1));
 
     blocTest<DeviceGalleryBloc, DeviceGalleryState>(
       'emits [LoadInProgress, LoadSuccess] with grouped assets when requested',
       build: () {
-        when(() => mockDataSource.getLocalAssets())
+        when(() => mockGetLocalGallery())
             .thenAnswer((_) async => [todayAsset, yesterdayAsset, olderAsset]);
         when(() => mockPrefs.getBool(any())).thenReturn(false);
-        when(() => mockBackupLocalDataSource.getSyncedIds()).thenAnswer((_) async => []);
+        when(() => mockPrefs.getInt(any())).thenReturn(3);
+        when(() => mockGetSyncedIds()).thenAnswer((_) async => []);
+        when(() => mockGetBackupStatuses()).thenAnswer((_) async => []);
+        when(() => mockGetCloudCount()).thenAnswer((_) async => const Right(0));
         return bloc;
       },
       act: (bloc) => bloc.add(const DeviceGalleryRequested()),
@@ -94,8 +106,6 @@ void main() {
     blocTest<DeviceGalleryBloc, DeviceGalleryState>(
       'toggles selection correctly',
       build: () {
-        when(() => mockDataSource.getLocalAssets())
-            .thenAnswer((_) async => [todayAsset]);
         return bloc;
       },
       seed: () => const DeviceGalleryLoadSuccess(
@@ -104,7 +114,11 @@ void main() {
       ),
       act: (bloc) => bloc.add(const DeviceGallerySelectionToggled('id1')),
       expect: () => [
-        const DeviceGalleryLoadSuccess(groups: [], selectedAssetIds: {}),
+        isA<DeviceGalleryLoadSuccess>().having(
+          (s) => s.selectedAssetIds,
+          'selectedAssetIds',
+          <String>{},
+        ),
       ],
     );
   });
