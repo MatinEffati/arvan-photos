@@ -52,7 +52,12 @@ class LocalPhotoGridItem extends StatelessWidget {
                         duration: const Duration(milliseconds: 200),
                         padding: EdgeInsets.all(isSelected ? 8 : 0),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          // Google Photos packs grid thumbnails edge-to-edge with
+                          // no rounding; a radius only appears once a photo is
+                          // selected and shrinks inward.
+                          borderRadius: BorderRadius.circular(
+                            isSelected ? 12 : 0,
+                          ),
                           child: Opacity(
                             opacity: isDeleting ? 0.5 : 1.0,
                             child: AssetEntityImage(
@@ -64,39 +69,43 @@ class LocalPhotoGridItem extends StatelessWidget {
                                 duration: asset.duration?.inSeconds ?? 0,
                               ),
                               isOriginal: false,
-                              thumbnailSize: const ThumbnailSize.square(200),
                               fit: BoxFit.cover,
                             ),
                           ),
                         ),
                       ),
                     ),
-                    
+
                     if (isDeleting)
                       const Center(
                         child: SizedBox(
                           width: 24,
                           height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-          
+
                     if (isSelected)
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
                             color: AppColors.primary.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
-          
+
                     if (isSelectionMode && !isDeleting)
                       Positioned(
                         top: 4,
                         left: 4,
                         child: Icon(
-                          isSelected ? Icons.check_circle : Icons.circle_outlined,
+                          isSelected
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
                           color: isSelected ? AppColors.primary : Colors.white,
                           size: 24,
                           shadows: const [
@@ -108,19 +117,24 @@ class LocalPhotoGridItem extends StatelessWidget {
                           ],
                         ),
                       ),
-          
+
                     if (!isDeleting)
                       Positioned(
                         bottom: 4,
                         right: 4,
-                        child: BlocSelector<BackupStatusBloc, BackupStatusState, BackupStatus?>(
-                          selector: (state) => state.statuses[asset.id],
-                          builder: (context, statusInfo) {
-                            final status = statusInfo?.status;
-                            final progress = statusInfo?.progress ?? 0.0;
-                            return _buildStatusIcon(status, progress);
-                          },
-                        ),
+                        child:
+                            BlocSelector<
+                              BackupStatusBloc,
+                              BackupStatusState,
+                              BackupStatus?
+                            >(
+                              selector: (state) => state.statuses[asset.id],
+                              builder: (context, statusInfo) {
+                                final status = statusInfo?.status;
+                                final progress = statusInfo?.progress ?? 0.0;
+                                return _buildStatusIcon(status, progress);
+                              },
+                            ),
                       ),
                   ],
                 ),
@@ -134,11 +148,7 @@ class LocalPhotoGridItem extends StatelessWidget {
 
   Widget _buildStatusIcon(String? status, double progress) {
     const iconShadows = [
-      Shadow(
-        color: Colors.black45,
-        blurRadius: 4,
-        offset: Offset(0, 1),
-      ),
+      Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 1)),
     ];
 
     switch (status) {
