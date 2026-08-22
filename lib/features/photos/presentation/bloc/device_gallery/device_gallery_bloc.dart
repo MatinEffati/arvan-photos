@@ -94,10 +94,13 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
   static List<LocalPhotoGroup> _groupAssetsInternal(List<DeviceAsset> assets) {
     final grouped = <String, List<DeviceAsset>>{};
-    final formatter = DateFormat('yyyy-MM-dd');
+    final fullDateFormatter = DateFormat('E, MMM d, yyyy');
+    final weekDayFormatter = DateFormat('EEEE');
+    
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
+    final sixDaysAgo = today.subtract(const Duration(days: 6));
 
     for (final asset in assets) {
       final date = asset.modifiedDateTime;
@@ -108,8 +111,15 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
         title = 'Today';
       } else if (assetDay == yesterday) {
         title = 'Yesterday';
+      } else if (assetDay.isAfter(sixDaysAgo)) {
+        title = weekDayFormatter.format(date);
       } else {
-        title = formatter.format(date);
+        title = fullDateFormatter.format(date);
+      }
+
+      // Ensure the first letter is always capitalized
+      if (title.isNotEmpty) {
+        title = title[0].toUpperCase() + title.substring(1);
       }
 
       grouped.putIfAbsent(title, () => []).add(asset);

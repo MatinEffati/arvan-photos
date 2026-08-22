@@ -165,9 +165,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         BlocListener<UploadBloc, UploadState>(
           listener: (context, state) {
             if (state is UploadSuccess) {
-              context.read<DeviceGalleryBloc>().add(
-                DeviceGalleryBackupStatusChanged(state.assetId, isBackedUp: true),
-              );
+              context.read<DeviceGalleryBloc>().add(DeviceGalleryBackupStatusChanged(state.assetId, isBackedUp: true));
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup successful')));
             } else if (state is UploadFailure) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup failed: ${state.message}')));
@@ -178,6 +176,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
           listener: (context, state) {
             if (state is DeleteSuccess) {
               _pendingDeleteIds.remove(state.assetId);
+              context.read<DeviceGalleryBloc>().add(DeviceGalleryBackupStatusChanged(state.assetId, isBackedUp: false));
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted successfully')));
             } else if (state is DeleteFailure) {
               _pendingDeleteIds.remove(state.assetId);
@@ -332,11 +331,13 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                         onTrash: () => _handleTrash(context, state),
                         onDeleteFromDevice: () {
                           context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared());
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Delete from device coming soon')));
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(const SnackBar(content: Text('Delete from device coming soon')));
                         },
-                        onStub: (label) => ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$label is coming soon')),
-                        ),
+                        onStub: (label) => ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('$label is coming soon'))),
                       ),
                     ),
                   ),
@@ -379,12 +380,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                     ),
                   );
                 },
-                child: Text(
-                  backupStatus,
-                  style: const TextStyle(
-                    fontSize: 12,
-                  ),
-                ),
+                child: Text(backupStatus, style: const TextStyle(fontSize: 12)),
               ),
             ),
             IconButton(
@@ -460,7 +456,38 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
           slivers: [
             if (reserveToolbarSpace) const SliverToBoxAdapter(child: SizedBox(height: kToolbarHeight)),
             ...state.groups.expand((group) {
+              final allInGroupSelected =
+                  state.selectedAssetIds.isNotEmpty && group.assets.every((a) => state.selectedAssetIds.contains(a.id));
+
               return [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            group.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF3C4043)),
+                          ),
+                        ),
+                        if (state.selectedAssetIds.isNotEmpty)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              allInGroupSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                              color: allInGroupSelected ? AppColors.primary : AppColors.grey500,
+                              size: 22,
+                            ),
+                            onPressed: () {
+                              context.read<DeviceGalleryBloc>().add(DeviceGalleryGroupSelectionToggled(group.title));
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 2),
                   sliver: SliverGrid(
@@ -491,13 +518,13 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                                     assets: allAssets
                                         .map(
                                           (a) => AssetEntity(
-                                        id: a.id,
-                                        typeInt: AssetType.image.index,
-                                        width: a.width ?? 0,
-                                        height: a.height ?? 0,
-                                        duration: a.duration?.inSeconds ?? 0,
-                                      ),
-                                    )
+                                            id: a.id,
+                                            typeInt: AssetType.image.index,
+                                            width: a.width ?? 0,
+                                            height: a.height ?? 0,
+                                            duration: a.duration?.inSeconds ?? 0,
+                                          ),
+                                        )
                                         .toList(),
                                     initialIndex: allAssets.indexOf(asset),
                                   ),
@@ -520,9 +547,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
             // (selection mode) — both sit on top of the system gesture bar,
             // so the system inset alone (previously ignored here) wasn't
             // enough.
-            SliverToBoxAdapter(
-              child: SizedBox(height: MediaQuery.of(context).padding.bottom + 110),
-            ),
+            SliverToBoxAdapter(child: SizedBox(height: MediaQuery.of(context).padding.bottom + 110)),
           ],
         ),
       );
@@ -599,9 +624,7 @@ class SelectionCountPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFFFF1E4),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -623,6 +646,7 @@ class SelectionCountPill extends StatelessWidget {
 
 class _SelectionAction {
   const _SelectionAction(this.icon, this.label);
+
   final IconData icon;
   final String label;
 }
@@ -675,10 +699,7 @@ class SelectionActionSheet extends StatelessWidget {
           Container(
             width: 36,
             height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFDDBE),
-              borderRadius: BorderRadius.circular(2),
-            ),
+            decoration: BoxDecoration(color: const Color(0xFFFFDDBE), borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -690,25 +711,13 @@ class SelectionActionSheet extends StatelessWidget {
               itemBuilder: (context, index) {
                 final action = _actions[index];
                 if (action.label == 'Back up') {
-                  return _SelectionActionButton(
-                    icon: action.icon,
-                    label: action.label,
-                    onTap: onBackUp,
-                  );
+                  return _SelectionActionButton(icon: action.icon, label: action.label, onTap: onBackUp);
                 }
                 if (action.label == 'Trash') {
-                  return _SelectionActionButton(
-                    icon: action.icon,
-                    label: action.label,
-                    onTap: onTrash,
-                  );
+                  return _SelectionActionButton(icon: action.icon, label: action.label, onTap: onTrash);
                 }
                 if (action.label == 'Delete from device') {
-                  return _SelectionActionButton(
-                    icon: action.icon,
-                    label: action.label,
-                    onTap: onDeleteFromDevice,
-                  );
+                  return _SelectionActionButton(icon: action.icon, label: action.label, onTap: onDeleteFromDevice);
                 }
                 return _SelectionActionButton(
                   icon: action.icon,
