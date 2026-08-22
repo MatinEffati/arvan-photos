@@ -6,6 +6,19 @@ import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 
+/// Colors sampled from the reference screenshot.
+class _RefColors {
+  const _RefColors._();
+
+  static const titleBlack = Color(0xFF212121);
+  static const subtitleGrey = Color(0xFF5F6368);
+}
+
+const List<String> _kMonthAbbr = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
 class LocalPhotoDetailScreen extends StatefulWidget {
   const LocalPhotoDetailScreen({
     required this.assets,
@@ -22,43 +35,240 @@ class LocalPhotoDetailScreen extends StatefulWidget {
 
 class _LocalPhotoDetailScreenState extends State<LocalPhotoDetailScreen> {
   late PageController _pageController;
+  late int _currentIndex;
+  bool _chromeVisible = true;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  void _toggleChrome() {
+    setState(() => _chromeVisible = !_chromeVisible);
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${_kMonthAbbr[dt.month - 1]} ${dt.day}, ${dt.year}';
+  }
+
+  String _formatTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  void _showComingSoon(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature is coming soon')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<DeviceGalleryBloc, DeviceGalleryState>(
       builder: (context, galleryState) {
+        final currentAsset = widget.assets[_currentIndex];
+
         return Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.black.withValues(alpha: 0.5),
-            elevation: 0,
-            iconTheme: const IconThemeData(color: Colors.white),
-          ),
-          body: PhotoViewGallery.builder(
-            scrollPhysics: const BouncingScrollPhysics(),
-            builder: (context, index) {
-              return PhotoViewGalleryPageOptions(
-                imageProvider: AssetEntityImageProvider(widget.assets[index], isOriginal: true),
-                initialScale: PhotoViewComputedScale.contained,
-                minScale: PhotoViewComputedScale.contained * 1,
-                maxScale: PhotoViewComputedScale.covered * 4,
-                heroAttributes: PhotoViewHeroAttributes(tag: widget.assets[index].id),
-              );
-            },
-            itemCount: widget.assets.length,
-            loadingBuilder: (context, event) => const Center(
-              child: CircularProgressIndicator(),
+          backgroundColor: Colors.white,
+          body: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            color: _chromeVisible ? Colors.white : Colors.black,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: PhotoViewGallery.builder(
+                    scrollPhysics: const BouncingScrollPhysics(),
+                    builder: (context, index) {
+                      return PhotoViewGalleryPageOptions(
+                        imageProvider: AssetEntityImageProvider(
+                          widget.assets[index],
+                        ),
+                        initialScale: PhotoViewComputedScale.contained,
+                        minScale: PhotoViewComputedScale.contained * 1,
+                        maxScale: PhotoViewComputedScale.covered * 4,
+                        heroAttributes: PhotoViewHeroAttributes(
+                          tag: widget.assets[index].id,
+                        ),
+                        onTapUp: (context, details, controllerValue) =>
+                            _toggleChrome(),
+                      );
+                    },
+                    itemCount: widget.assets.length,
+                    loadingBuilder: (context, event) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                    pageController: _pageController,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentIndex = index;
+                      });
+                    },
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    ignoring: !_chromeVisible,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: _chromeVisible ? 1 : 0,
+                      child: SafeArea(
+                        bottom: false,
+                        child: _buildTopChrome(context, currentAsset),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    ignoring: !_chromeVisible,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: _chromeVisible ? 1 : 0,
+                      child: SafeArea(
+                        top: false,
+                        child: _buildBottomChrome(context),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            pageController: _pageController,
           ),
         );
       },
+    );
+  }
+
+  Widget _buildTopChrome(BuildContext context, AssetEntity currentAsset) {
+    final dt = currentAsset.createDateTime;
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: _RefColors.titleBlack),
+            onPressed: () => Navigator.pop(context),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _formatDate(dt),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w500,
+                        color: _RefColors.titleBlack,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: _RefColors.titleBlack,
+                    ),
+                  ],
+                ),
+                Text(
+                  _formatTime(dt),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: _RefColors.subtitleGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.star_border, color: _RefColors.titleBlack),
+            onPressed: () {},
+            tooltip: 'Favorite',
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: _RefColors.titleBlack),
+            onPressed: () {},
+            tooltip: 'More',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomChrome(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _ActionButton(
+            icon: Icons.share_outlined,
+            label: 'Share',
+            onTap: () => _showComingSoon(context, 'Share'),
+          ),
+          _ActionButton(
+            icon: Icons.tune,
+            label: 'Edit',
+            onTap: () => _showComingSoon(context, 'Edit'),
+          ),
+          _ActionButton(
+            icon: Icons.add,
+            label: 'Add to',
+            onTap: () => _showComingSoon(context, 'Add to'),
+          ),
+          _ActionButton(
+            icon: Icons.delete_outline,
+            label: 'Trash',
+            onTap: () => _showComingSoon(context, 'Trash'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: _RefColors.titleBlack, size: 22),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: _RefColors.titleBlack),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

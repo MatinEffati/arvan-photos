@@ -1,5 +1,7 @@
 import 'package:arvan_photos/core/theme/app_colors.dart';
+import 'package:arvan_photos/features/photos/presentation/bloc/delete/delete_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
+import 'package:arvan_photos/features/photos/presentation/bloc/upload/upload_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/backup_settings_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/local_photo_detail_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/photos_view_stub_screen.dart';
@@ -115,30 +117,54 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<DeviceGalleryBloc, DeviceGalleryState>(
-      listener: (context, state) {
-        if (state is DeviceGalleryLoadFailure) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${state.message}')));
-        } else if (state is DeviceGalleryLoadSuccess && state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${state.errorMessage}')));
-        }
-      },
-      builder: (context, state) {
-        final isSelectionMode = state is DeviceGalleryLoadSuccess && state.selectedAssetIds.isNotEmpty;
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<DeviceGalleryBloc, DeviceGalleryState>(
+          listener: (context, state) {
+            if (state is DeviceGalleryLoadFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${state.message}')));
+            } else if (state is DeviceGalleryLoadSuccess && state.errorMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${state.errorMessage}')));
+            }
+          },
+        ),
+        BlocListener<UploadBloc, UploadState>(
+          listener: (context, state) {
+            if (state is UploadSuccess) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup successful')));
+            } else if (state is UploadFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup failed: ${state.message}')));
+            }
+          },
+        ),
+        BlocListener<DeleteBloc, DeleteState>(
+          listener: (context, state) {
+            if (state is DeleteSuccess) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted successfully')));
+            } else if (state is DeleteFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: ${state.message}')));
+            }
+          },
+        ),
+      ],
+      child: BlocBuilder<DeviceGalleryBloc, DeviceGalleryState>(
+        builder: (context, state) {
+          final isSelectionMode = state is DeviceGalleryLoadSuccess && state.selectedAssetIds.isNotEmpty;
 
         if (state is DeviceGalleryLoadSuccess) {
           _computeGroupOffsets(context, state);
         }
 
-        // Selection mode keeps a normal, always-opaque AppBar (it's an
-        // explicit user action, it shouldn't fade away on scroll).
-        if (isSelectionMode) {
-          return Scaffold(
-            appBar: _buildSelectionAppBar(context, state),
-            body: _buildContent(context, state, reserveToolbarSpace: false),
-          );
-        }
+        final selectedCount = state is DeviceGalleryLoadSuccess ? state.selectedAssetIds.length : 0;
 
+        // Selection mode no longer branches into a separate Scaffold — it
+        // used to, which is exactly why the date pill / three-dot stopped
+        // appearing on scroll while selecting (that whole scroll-linked
+        // overlay lived only in the other branch). Now both modes share the
+        // same Stack; selection mode just swaps the top-left widget (count
+        // chip instead of logo/toolbar) and adds the bottom action sheet,
+        // while the scroll-driven scrim + date pill + "..." button behave
+        // identically either way.
         return Scaffold(
           extendBodyBehindAppBar: true,
           body: Stack(
@@ -149,25 +175,42 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
               // so nothing can ever paint above this line (unlike the old
               // Padding/Opacity approach, which only hid it visually while
               // still letting it scroll behind the status bar icons).
-              Positioned.fill(top: MediaQuery.of(context).padding.top, child: _buildContent(context, state)),
-              // The normal toolbar (logo, backup status, folder/+/bell/avatar)
-              // fades out as the user scrolls down. Painted BELOW the
-              // scrim/pill/button layers so it never washes over them
-              // mid-crossfade.
-              ValueListenableBuilder<double>(
-                valueListenable: _scrollProgress,
-                builder: (context, progress, _) {
-                  return IgnorePointer(
-                    ignoring: progress > 0.5,
-                    child: Opacity(opacity: 1 - progress, child: _buildToolbar(context, state)),
-                  );
-                },
+              Positioned.fill(
+                top: MediaQuery.of(context).padding.top,
+                child: _buildContent(context, state, reserveToolbarSpace: !isSelectionMode),
               ),
-              // Status bar scrim + floating pill/button only fade in once the
-              // toolbar underneath has (mostly) faded out. These are true
-              // overlays with nothing behind them but the photo grid —
-              // no enclosing bar, just the pill/button's own shadow, like a
-              // FAB floating over content.
+              // The normal toolbar (logo, backup status, folder/+/bell/avatar)
+              // fades out as the user scrolls down, and is fully hidden (not
+              // just faded) in selection mode — the count chip below takes
+              // its place instead. Painted BELOW the scrim/pill/button
+              // layers so it never washes over them mid-crossfade.
+              if (!isSelectionMode)
+                ValueListenableBuilder<double>(
+                  valueListenable: _scrollProgress,
+                  builder: (context, progress, _) {
+                    return IgnorePointer(
+                      ignoring: progress > 0.5,
+                      child: Opacity(opacity: 1 - progress, child: _buildToolbar(context, state)),
+                    );
+                  },
+                ),
+              // Selection count chip: always fully visible (this is an
+              // explicit user action, it shouldn't fade with scroll like the
+              // browse toolbar does), pinned top-left at the same height the
+              // toolbar/pill row uses.
+              if (isSelectionMode)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  left: 16,
+                  child: SelectionCountPill(
+                    count: selectedCount,
+                    onClose: () => context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared()),
+                  ),
+                ),
+              // Status bar scrim + floating date pill/"..." button — these
+              // fade in with scroll progress in BOTH modes now. They sit
+              // beside the count chip (center + right) rather than
+              // overlapping it.
               ValueListenableBuilder<double>(
                 valueListenable: _scrollProgress,
                 builder: (context, progress, _) {
@@ -221,23 +264,51 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                   );
                 },
               ),
+              // Selection action sheet: pinned to the bottom, always fully
+              // visible while selecting. MainNavigationScreen hides its own
+              // floating nav bar while this is up (see BlocBuilder there),
+              // so this no longer renders underneath it.
+              if (isSelectionMode)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: SelectionActionSheet(
+                      onBackUp: () {
+                        if (state is DeviceGalleryLoadSuccess) {
+                          for (final id in state.selectedAssetIds) {
+                            context.read<UploadBloc>().add(UploadPhotoRequested(assetId: id));
+                          }
+                          context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared());
+                        }
+                      },
+                      onTrash: () {
+                        if (state is DeviceGalleryLoadSuccess) {
+                          for (final id in state.selectedAssetIds) {
+                            context.read<DeleteBloc>().add(DeletePhotoRequested(id));
+                          }
+                          context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared());
+                        }
+                      },
+                      onDeleteFromDevice: () {
+                        context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared());
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Delete from device coming soon')));
+                      },
+                      onStub: (label) => ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('$label is coming soon')),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
       },
-    );
-  }
-
-  PreferredSizeWidget _buildSelectionAppBar(BuildContext context, DeviceGalleryLoadSuccess state) {
-    return AppBar(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-        onPressed: () => context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectAllToggled()),
-      ),
-      title: Text('${state.selectedAssetIds.length} selected'),
-    );
-  }
+    ),
+  );
+}
 
   /// The normal (non-collapsed) toolbar row, painted as a plain white bar
   /// rather than a Scaffold AppBar so it can live inside the fading Stack.
@@ -256,7 +327,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
           children: [
             const SizedBox(width: 16),
             Image.asset('assets/app_icon.png', height: 28),
-            const SizedBox(width: 12),
+            const SizedBox(width: 4),
             Expanded(
               child: InkWell(
                 onTap: () {
@@ -270,26 +341,11 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                     ),
                   );
                 },
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'Photos',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF3C4043),
-                      ),
-                    ),
-                    Text(
-                      backupStatus,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF5F6368),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  backupStatus,
+                  style: const TextStyle(
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ),
@@ -397,13 +453,13 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                                     assets: allAssets
                                         .map(
                                           (a) => AssetEntity(
-                                            id: a.id,
-                                            typeInt: AssetType.image.index,
-                                            width: a.width ?? 0,
-                                            height: a.height ?? 0,
-                                            duration: a.duration?.inSeconds ?? 0,
-                                          ),
-                                        )
+                                        id: a.id,
+                                        typeInt: AssetType.image.index,
+                                        width: a.width ?? 0,
+                                        height: a.height ?? 0,
+                                        duration: a.duration?.inSeconds ?? 0,
+                                      ),
+                                    )
                                         .toList(),
                                     initialIndex: allAssets.indexOf(asset),
                                   ),
@@ -421,7 +477,14 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                 ),
               ];
             }),
-            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            // Bottom clearance so the last row never scrolls under the
+            // floating nav bar (normal mode) or the selection action sheet
+            // (selection mode) — both sit on top of the system gesture bar,
+            // so the system inset alone (previously ignored here) wasn't
+            // enough.
+            SliverToBoxAdapter(
+              child: SizedBox(height: MediaQuery.of(context).padding.bottom + 110),
+            ),
           ],
         ),
       );
@@ -478,6 +541,181 @@ class FloatingMoreButton extends StatelessWidget {
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: const Icon(Icons.more_vert, size: 20, color: Color(0xFF3C4043)),
+      ),
+    );
+  }
+}
+
+/// Same cream tone as the date pill / "Back up now" chip elsewhere — floating
+/// "X  <count>" indicator shown in selection mode instead of the date pill.
+class SelectionCountPill extends StatelessWidget {
+  const SelectionCountPill({required this.count, required this.onClose, super.key});
+
+  final int count;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1E4),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: onClose,
+            child: const Icon(Icons.close, size: 20, color: Color(0xFF3C3229)),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '$count',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF3C3229)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectionAction {
+  const _SelectionAction(this.icon, this.label);
+  final IconData icon;
+  final String label;
+}
+
+/// Horizontally-scrolling sheet of selection actions, styled like a bottom
+/// sheet (drag handle, rounded top corners) even though it's not a modal —
+/// it just sits pinned above the system nav bar while items are selected.
+/// Only "Back up" is wired to a real bloc event; the rest don't have a
+/// device-side implementation yet, so they're stubbed with a snackbar
+/// (same pattern as EmptyStateScreen / PhotosViewStubScreen elsewhere in
+/// this app) rather than inventing behavior that isn't there.
+class SelectionActionSheet extends StatelessWidget {
+  const SelectionActionSheet({
+    required this.onBackUp,
+    required this.onTrash,
+    required this.onDeleteFromDevice,
+    required this.onStub,
+    super.key,
+  });
+
+  final VoidCallback onBackUp;
+  final VoidCallback onTrash;
+  final VoidCallback onDeleteFromDevice;
+  final void Function(String label) onStub;
+
+  static const List<_SelectionAction> _actions = [
+    _SelectionAction(Icons.share_outlined, 'Share'),
+    _SelectionAction(Icons.playlist_add, 'Add to album'),
+    _SelectionAction(Icons.add, 'Create'),
+    _SelectionAction(Icons.delete_outline, 'Trash'),
+    _SelectionAction(Icons.shopping_cart_outlined, 'Order photo'),
+    _SelectionAction(Icons.cloud_upload_outlined, 'Back up'),
+    _SelectionAction(Icons.move_to_inbox_outlined, 'Move to Archive'),
+    _SelectionAction(Icons.phonelink_erase_outlined, 'Delete from device'),
+    _SelectionAction(Icons.edit_location_alt_outlined, 'Edit location'),
+    _SelectionAction(Icons.lock_outline, 'Move to Locked Folder'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFDDBE),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 68,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              itemCount: _actions.length,
+              itemBuilder: (context, index) {
+                final action = _actions[index];
+                if (action.label == 'Back up') {
+                  return _SelectionActionButton(
+                    icon: action.icon,
+                    label: action.label,
+                    onTap: onBackUp,
+                  );
+                }
+                if (action.label == 'Trash') {
+                  return _SelectionActionButton(
+                    icon: action.icon,
+                    label: action.label,
+                    onTap: onTrash,
+                  );
+                }
+                if (action.label == 'Delete from device') {
+                  return _SelectionActionButton(
+                    icon: action.icon,
+                    label: action.label,
+                    onTap: onDeleteFromDevice,
+                  );
+                }
+                return _SelectionActionButton(
+                  icon: action.icon,
+                  label: action.label,
+                  onTap: () => onStub(action.label),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectionActionButton extends StatelessWidget {
+  const _SelectionActionButton({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 78,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 24, color: const Color(0xFF3C3229)),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF3C3229)),
+            ),
+          ],
+        ),
       ),
     );
   }

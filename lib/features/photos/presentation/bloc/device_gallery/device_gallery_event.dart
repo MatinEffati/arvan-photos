@@ -31,6 +31,10 @@ class DeviceGallerySelectAllToggled extends DeviceGalleryEvent {
   const DeviceGallerySelectAllToggled();
 }
 
+class DeviceGallerySelectionCleared extends DeviceGalleryEvent {
+  const DeviceGallerySelectionCleared();
+}
+
 class DeviceGalleryGridColumnsChanged extends DeviceGalleryEvent {
   const DeviceGalleryGridColumnsChanged(this.columns);
   final int columns;

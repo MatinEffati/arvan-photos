@@ -61,7 +61,7 @@ class LocalPhotoGridItem extends StatelessWidget {
                               height: asset.height ?? 0,
                               duration: asset.duration?.inSeconds ?? 0,
                             ),
-                            isOriginal: false,
+                            thumbnailSize: const ThumbnailSize.square(200),
                             fit: BoxFit.cover,
                           ),
                         ),
@@ -85,14 +85,14 @@ class LocalPhotoGridItem extends StatelessWidget {
                         child: Icon(
                           isSelected
                               ? Icons.check_circle
-                              : Icons.circle_outlined,
+                              : Icons.radio_button_unchecked,
                           color: isSelected ? AppColors.primary : Colors.white,
                           size: 24,
-                          shadows: const [
+                          shadows: [
                             Shadow(
-                              color: Colors.black45,
+                              color: Colors.black.withValues(alpha: 0.45),
                               blurRadius: 4,
-                              offset: Offset(0, 1),
+                              offset: const Offset(0, 1),
                             ),
                           ],
                         ),

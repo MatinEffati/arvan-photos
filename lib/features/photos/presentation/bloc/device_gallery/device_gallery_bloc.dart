@@ -24,6 +24,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     on<DeviceGallerySelectionToggled>(_onSelectionToggled);
     on<DeviceGalleryGroupSelectionToggled>(_onGroupSelectionToggled);
     on<DeviceGallerySelectAllToggled>(_onSelectAllToggled);
+    on<DeviceGallerySelectionCleared>(_onSelectionCleared);
     on<DeviceGalleryGridColumnsChanged>(_onGridColumnsChanged);
     on<DeviceGalleryAutoBackupToggled>(_onAutoBackupToggled);
 
@@ -178,6 +179,16 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       } else {
         emit(currentState.copyWith(selectedAssetIds: allIds));
       }
+    }
+  }
+
+  void _onSelectionCleared(
+    DeviceGallerySelectionCleared event,
+    Emitter<DeviceGalleryState> emit,
+  ) {
+    if (state is DeviceGalleryLoadSuccess) {
+      final currentState = state as DeviceGalleryLoadSuccess;
+      emit(currentState.copyWith(selectedAssetIds: const {}));
     }
   }
 

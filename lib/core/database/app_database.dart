@@ -2,7 +2,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
-  static const int version = 7;
+  static const int version = 9;
   static const String name = 'arvan_photos.db';
 
   static Database? _database;
@@ -19,10 +19,26 @@ class AppDatabase {
       path,
       version: version,
       onCreate: (db, version) async {
-        // Local-only app: no cloud tables needed.
+        await db.execute('''
+          CREATE TABLE backup_registry (
+            asset_id TEXT PRIMARY KEY,
+            remote_key TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            synced_at TEXT NOT NULL
+          )
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // Migrations removed as cloud functionality is deleted.
+        if (oldVersion < 9) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS backup_registry (
+              asset_id TEXT PRIMARY KEY,
+              remote_key TEXT NOT NULL,
+              original_filename TEXT NOT NULL,
+              synced_at TEXT NOT NULL
+            )
+          ''');
+        }
       },
       onOpen: (db) async {
         // Robust opening.
