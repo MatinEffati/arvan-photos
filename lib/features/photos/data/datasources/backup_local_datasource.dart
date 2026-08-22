@@ -9,6 +9,8 @@ abstract class BackupLocalDataSource {
   Future<List<BackupQueueItem>> getPending(int limit);
   Future<BackupQueueItem?> getById(String assetId);
   Future<List<String>> getSyncedIds();
+  Future<int> getPendingCount();
+  Future<int> getSyncedCount();
   Future<void> remove(String assetId);
 }
 
@@ -52,7 +54,7 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
     double? progress,
     String? remoteKey,
   }) async {
-    final Map<String, dynamic> values = {
+    final values = <String, dynamic>{
       'status': status,
     };
     if (progress != null) values['progress'] = progress;
@@ -104,6 +106,24 @@ class BackupLocalDataSourceImpl implements BackupLocalDataSource {
       whereArgs: ['synced'],
     );
     return results.map((e) => e['local_asset_id'] as String).toList();
+  }
+
+  @override
+  Future<int> getPendingCount() async {
+    final result = await _db.rawQuery(
+      'SELECT COUNT(*) as count FROM $_tableName WHERE status IN (?, ?, ?)',
+      ['queued', 'failed', 'uploading'],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  @override
+  Future<int> getSyncedCount() async {
+    final result = await _db.rawQuery(
+      'SELECT COUNT(*) as count FROM $_tableName WHERE status = ?',
+      ['synced'],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   @override

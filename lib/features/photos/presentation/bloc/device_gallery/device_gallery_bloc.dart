@@ -151,7 +151,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
   static List<LocalPhotoGroup> _groupAssetsInternal(List<DeviceAsset> assets) {
     final grouped = <String, List<DeviceAsset>>{};
-    final DateFormat formatter = DateFormat('yyyy-MM-dd');
+    final formatter = DateFormat('yyyy-MM-dd');
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));

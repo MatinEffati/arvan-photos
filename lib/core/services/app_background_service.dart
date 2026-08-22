@@ -11,6 +11,7 @@ import 'package:arvan_photos/features/photos/domain/entities/upload_task.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
 class AppBackgroundService {
@@ -47,7 +48,19 @@ class AppBackgroundService {
   }
 }
 
-bool _isCompleteNotificationShown = false;
+class _NotificationPersistence {
+  static const _key = 'last_notified_synced_count';
+
+  static Future<int> getLastNotified() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_key) ?? -1;
+  }
+
+  static Future<void> setLastNotified(int count) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_key, count);
+  }
+}
 
 @pragma('vm:entry-point')
 Future<void> onStart(ServiceInstance service) async {
@@ -93,16 +106,28 @@ Future<void> onStart(ServiceInstance service) async {
       }
     });
 
-    service.on('pause').listen((event) {
+    service.on('pause').listen((event) async {
       debugPrint('BACKUP_SERVICE: Paused');
       isPaused = true;
       service.invoke('update', {'status': 'paused'});
+      await _updateOverallNotification(
+        service,
+        backupLocalDataSource,
+        lastQueueTotal,
+        isPaused: true,
+      );
     });
 
-    service.on('resume').listen((event) {
+    service.on('resume').listen((event) async {
       debugPrint('BACKUP_SERVICE: Resumed');
       isPaused = false;
       service.invoke('update', {'status': 'resumed'});
+      await _updateOverallNotification(
+        service,
+        backupLocalDataSource,
+        lastQueueTotal,
+        isPaused: false,
+      );
     });
 
     Future<void> runProcessingCycle() async {
@@ -114,10 +139,10 @@ Future<void> onStart(ServiceInstance service) async {
           return;
         }
 
-        final allPending = await backupLocalDataSource.getPending(500);
+        final pendingCount = await backupLocalDataSource.getPendingCount();
         
-        if (allPending.isNotEmpty && activeUploads.isEmpty) {
-          lastQueueTotal = allPending.length;
+        if (pendingCount > 0 && activeUploads.isEmpty) {
+          lastQueueTotal = pendingCount;
         }
 
         final pendingBackup = await backupLocalDataSource.getPending(
@@ -361,20 +386,18 @@ Future<void> _updateOverallNotification(
   int lastQueueTotal, {
   bool isPaused = false,
 }) async {
-  final all = await localDataSource.getAll();
-  final uploading = all.where((e) => e.status == 'uploading').length;
-  final queued = all.where((e) => e.status == 'queued' || e.status == 'failed').length;
-
-  final itemsLeft = queued + uploading;
+  final itemsLeft = await localDataSource.getPendingCount();
 
   if (itemsLeft == 0) {
-    final synced = all.where((e) => e.status == 'synced').length;
+    final synced = await localDataSource.getSyncedCount();
+    final lastNotified = await _NotificationPersistence.getLastNotified();
+
     if (synced > 0) {
-      if (!_isCompleteNotificationShown) {
+      if (synced > lastNotified) {
         if (service is AndroidServiceInstance) {
           await service.setAsBackgroundService();
         }
-        _isCompleteNotificationShown = true;
+        await _NotificationPersistence.setLastNotified(synced);
         await NotificationService.showUploadProgress(
           id: AppBackgroundService.notificationId,
           title: 'Backup Complete',
@@ -384,16 +407,16 @@ Future<void> _updateOverallNotification(
         );
       }
     } else {
-      if (service is AndroidServiceInstance) {
-        await service.setAsBackgroundService();
+      if (lastNotified != 0) {
+        if (service is AndroidServiceInstance) {
+          await service.setAsBackgroundService();
+        }
+        await _NotificationPersistence.setLastNotified(0);
+        await NotificationService.cancel(AppBackgroundService.notificationId);
       }
-      _isCompleteNotificationShown = false;
-      await NotificationService.cancel(AppBackgroundService.notificationId);
     }
     return;
   }
-
-  _isCompleteNotificationShown = false;
 
   if (service is AndroidServiceInstance) {
     await service.setAsForegroundService();

@@ -22,18 +22,40 @@ class DeviceGalleryScreen extends StatefulWidget {
 class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
 
+  // Drives the collapsing toolbar <-> floating pill crossfade. 0 = toolbar
+  // fully shown (top of list), 1 = toolbar hidden / pill+scrim fully shown.
+  final ValueNotifier<double> _scrollProgress = ValueNotifier(0);
+
+  // Which date group is currently at the top of the viewport — this is what
+  // the floating pill displays. Recomputed from real scroll offsets, not
+  // tied to any single group's own header (there isn't one anymore).
+  final ValueNotifier<String> _currentGroupTitle = ValueNotifier('');
+
+  // Cumulative pixel offset where each group starts, rebuilt whenever the
+  // groups or column count change. Used purely for the scroll -> title
+  // lookup above.
+  List<double> _groupStartOffsets = [];
+  List<String> _groupTitles = [];
+
+  static const double _kCollapseStart = 10;
+  static const double _kCollapseEnd = 70;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     context.read<DeviceGalleryBloc>().add(const DeviceGalleryRequested());
     context.read<BackupStatusBloc>().add(BackupStatusStarted());
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _scrollProgress.dispose();
+    _currentGroupTitle.dispose();
     super.dispose();
   }
 
@@ -42,6 +64,57 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
     if (state == AppLifecycleState.resumed) {
       // Refresh gallery when returning to app to catch any new downloads/changes
       context.read<DeviceGalleryBloc>().add(const DeviceGalleryRequested());
+    }
+  }
+
+  void _onScroll() {
+    final offset = _scrollController.offset;
+
+    final progress = ((offset - _kCollapseStart) / (_kCollapseEnd - _kCollapseStart))
+        .clamp(0.0, 1.0);
+    if (progress != _scrollProgress.value) {
+      _scrollProgress.value = progress;
+    }
+
+    if (_groupStartOffsets.isEmpty) return;
+    var index = 0;
+    for (var i = 0; i < _groupStartOffsets.length; i++) {
+      if (offset >= _groupStartOffsets[i]) index = i;
+    }
+    final title = _groupTitles[index];
+    if (title != _currentGroupTitle.value) {
+      _currentGroupTitle.value = title;
+    }
+  }
+
+  /// Precomputes where each date group starts in the scroll view so we can
+  /// map "current scroll offset" -> "current group title" for the floating
+  /// pill. Square grid items, same math the SliverGrid itself uses.
+  void _computeGroupOffsets(BuildContext context, DeviceGalleryLoadSuccess state) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    const horizontalPadding = 4.0; // SliverPadding horizontal: 2 each side
+    const spacing = 2.0;
+    final columns = state.gridColumns;
+    final itemSize = (screenWidth - horizontalPadding - (columns - 1) * spacing) / columns;
+
+    final offsets = <double>[];
+    final titles = <String>[];
+    // Content now starts after the leading spacer sliver (see
+    // _buildContent) — just kToolbarHeight now, since the status bar's own
+    // height is handled separately by the Positioned clip, not by this
+    // spacer. Group offsets must start from the same point, or the pill's
+    // title lookup would be off by that amount.
+    var cursor = kToolbarHeight;
+    for (final group in state.groups) {
+      offsets.add(cursor);
+      titles.add(group.title);
+      final rows = (group.assets.length / columns).ceil();
+      cursor += rows * itemSize + (rows - 1).clamp(0, 999999) * spacing;
+    }
+    _groupStartOffsets = offsets;
+    _groupTitles = titles;
+    if (_currentGroupTitle.value.isEmpty && titles.isNotEmpty) {
+      _currentGroupTitle.value = titles.first;
     }
   }
 
@@ -93,65 +166,165 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         final isSelectionMode =
             state is DeviceGalleryLoadSuccess && state.selectedAssetIds.isNotEmpty;
 
+        if (state is DeviceGalleryLoadSuccess) {
+          _computeGroupOffsets(context, state);
+        }
+
+        // Selection mode keeps a normal, always-opaque AppBar (it's an
+        // explicit user action, it shouldn't fade away on scroll).
+        if (isSelectionMode) {
+          return Scaffold(
+            appBar: _buildSelectionAppBar(context, state as DeviceGalleryLoadSuccess),
+            body: _buildContent(context, state, reserveToolbarSpace: false),
+          );
+        }
+
         return Scaffold(
-          appBar: _buildAppBar(context, state, isSelectionMode),
-          body: _buildContent(state),
+          extendBodyBehindAppBar: true,
+          body: Stack(
+            children: [
+              // Positioned with a fixed top clips the CustomScrollView's own
+              // viewport to start exactly at the status bar's bottom edge —
+              // a scroll viewport always clips its own content to its box,
+              // so nothing can ever paint above this line (unlike the old
+              // Padding/Opacity approach, which only hid it visually while
+              // still letting it scroll behind the status bar icons).
+              Positioned.fill(
+                top: MediaQuery.of(context).padding.top,
+                child: _buildContent(context, state),
+              ),
+              // The normal toolbar (logo, backup status, folder/+/bell/avatar)
+              // fades out as the user scrolls down. Painted BELOW the
+              // scrim/pill/button layers so it never washes over them
+              // mid-crossfade.
+              ValueListenableBuilder<double>(
+                valueListenable: _scrollProgress,
+                builder: (context, progress, _) {
+                  return IgnorePointer(
+                    ignoring: progress > 0.5,
+                    child: Opacity(
+                      opacity: 1 - progress,
+                      child: _buildToolbar(context, state),
+                    ),
+                  );
+                },
+              ),
+              // Status bar scrim + floating pill/button only fade in once the
+              // toolbar underneath has (mostly) faded out. These are true
+              // overlays with nothing behind them but the photo grid —
+              // no enclosing bar, just the pill/button's own shadow, like a
+              // FAB floating over content.
+              ValueListenableBuilder<double>(
+                valueListenable: _scrollProgress,
+                builder: (context, progress, _) {
+                  return IgnorePointer(
+                    ignoring: progress < 0.5,
+                    child: Opacity(opacity: progress, child: const TopStatusBarScrim()),
+                  );
+                },
+              ),
+              ValueListenableBuilder<double>(
+                valueListenable: _scrollProgress,
+                builder: (context, progress, _) {
+                  final topOffset = MediaQuery.of(context).padding.top + 8;
+                  return IgnorePointer(
+                    ignoring: progress < 0.5,
+                    child: Opacity(
+                      opacity: progress,
+                      child: Stack(
+                        children: [
+                          // Date pill: physically centered top, regardless of
+                          // RTL/LTR — Positioned/Align use physical
+                          // coordinates, unlike Row's start/end.
+                          Positioned(
+                            top: topOffset,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: ValueListenableBuilder<String>(
+                                valueListenable: _currentGroupTitle,
+                                builder: (context, title, _) {
+                                  return AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 150),
+                                    child: FloatingDatePill(title: title),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          // More button: pinned to the physical right edge.
+                          Positioned(
+                            top: topOffset,
+                            right: 16,
+                            child: FloatingMoreButton(
+                              // TODO(next task): open the per-photo view / menu.
+                              onTap: () {},
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  PreferredSizeWidget _buildAppBar(
-      BuildContext context, DeviceGalleryState state, bool isSelectionMode) {
-    if (isSelectionMode && state is DeviceGalleryLoadSuccess) {
-      return AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () =>
-              context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectAllToggled()),
-        ),
-        title: Text('${state.selectedAssetIds.length} selected'),
-        actions: [
-          if (state is DeviceGalleryActionInProgress)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+  PreferredSizeWidget _buildSelectionAppBar(BuildContext context, DeviceGalleryLoadSuccess state) {
+    return AppBar(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: () =>
+            context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectAllToggled()),
+      ),
+      title: Text('${state.selectedAssetIds.length} selected'),
+      actions: [
+        if (state is DeviceGalleryActionInProgress)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-            )
-          else ...[
-            // If any selected item is synced, show delete from cloud
-            BlocBuilder<BackupStatusBloc, BackupStatusState>(
-              builder: (context, statusState) {
-                final anySynced = state.selectedAssetIds.any((id) => statusState.statuses[id]?.status == 'synced');
-                if (anySynced) {
-                  return IconButton(
-                    icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
-                    onPressed: () {
-                      _confirmBulkDeleteCloud(context, state.selectedAssetIds.toList(), statusState);
-                    },
-                    tooltip: 'Delete selected from Cloud',
-                  );
-                }
-                return const SizedBox.shrink();
-              },
             ),
-            TextButton(
-              onPressed: () {
-                context.read<DeviceGalleryBloc>().add(const DeviceGalleryBackupRequested());
-              },
-              child: const Text('Back Up', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ],
+          )
+        else ...[
+          BlocBuilder<BackupStatusBloc, BackupStatusState>(
+            builder: (context, statusState) {
+              final anySynced = state.selectedAssetIds.any((id) => statusState.statuses[id]?.status == 'synced');
+              if (anySynced) {
+                return IconButton(
+                  icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
+                  onPressed: () {
+                    _confirmBulkDeleteCloud(context, state.selectedAssetIds.toList(), statusState);
+                  },
+                  tooltip: 'Delete selected from Cloud',
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<DeviceGalleryBloc>().add(const DeviceGalleryBackupRequested());
+            },
+            child: const Text('Back Up', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
         ],
-      );
-    }
+      ],
+    );
+  }
 
+  /// The normal (non-collapsed) toolbar row, painted as a plain white bar
+  /// rather than a Scaffold AppBar so it can live inside the fading Stack.
+  Widget _buildToolbar(BuildContext context, DeviceGalleryState state) {
     String statusText = 'Gallery';
     if (state is DeviceGalleryLoadSuccess) {
       if (state.isAutoBackupEnabled) {
@@ -161,89 +334,140 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
       }
     }
 
-    return AppBar(
-      title: GestureDetector(
-        onTap: () {
-          final galleryBloc = context.read<DeviceGalleryBloc>();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => BlocProvider.value(
-                value: galleryBloc,
-                child: const BackupSettingsScreen(),
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      child: SizedBox(
+        height: kToolbarHeight,
+        child: Row(
+          children: [
+            const SizedBox(width: 16),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _openBackupSettings(context),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Generic gallery mark in the app's own brand color —
+                    // deliberately not a reproduction of Google's pinwheel
+                    // logo (that's Google's trademark, not something to
+                    // clone 1:1).
+                    const Icon(Icons.photo_library_rounded, color: AppColors.primary, size: 26),
+                    const SizedBox(width: 10),
+                    Text(
+                      statusText,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        color: Color(0xFF5F6368),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          );
-        },
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.photo_library, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+            IconButton(
+              icon: const Icon(Icons.folder_outlined, color: Color(0xFF3C4043)),
+              onPressed: () {
+                final galleryBloc = context.read<DeviceGalleryBloc>();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => BlocProvider.value(
+                      value: galleryBloc,
+                      child: const PhotosViewStubScreen(),
+                    ),
+                  ),
+                );
+              },
+              tooltip: 'Photos view',
+            ),
+            Stack(
+              alignment: Alignment.center,
               children: [
-                const Text('Photos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text(
-                  statusText,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.normal),
+                IconButton(
+                  icon: const Icon(Icons.add, color: Color(0xFF3C4043)),
+                  onPressed: () {},
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  ),
                 ),
               ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined, color: Color(0xFF3C4043)),
+              onPressed: () {},
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 12, left: 4),
+              child: GestureDetector(
+                onTap: () => _openBackupSettings(context),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const CircleAvatar(
+                      radius: 15,
+                      backgroundColor: AppColors.grey200,
+                      child: Icon(Icons.person, size: 18, color: AppColors.grey700),
+                    ),
+                    Positioned(
+                      bottom: -2,
+                      right: -2,
+                      child: Container(
+                        width: 15,
+                        height: 15,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 2),
+                          ],
+                        ),
+                        child: const Icon(Icons.notifications_off, size: 9, color: Color(0xFF3C4043)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.grid_view, color: AppColors.grey700),
-          onPressed: () {
-            final galleryBloc = context.read<DeviceGalleryBloc>();
-            Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => BlocProvider.value(
-                  value: galleryBloc,
-                  child: const PhotosViewStubScreen(),
-                ),
-              ),
-            );
-          },
-          tooltip: 'Photos view',
-        ),
-        IconButton(
-          icon: const Icon(Icons.settings_outlined),
-          onPressed: () {
-            final galleryBloc = context.read<DeviceGalleryBloc>();
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => BlocProvider.value(
-                  value: galleryBloc,
-                  child: const BackupSettingsScreen(),
-                ),
-              ),
-            );
-          },
-        ),
-        const Padding(
-          padding: EdgeInsets.only(right: 16),
-          child: CircleAvatar(
-            radius: 14,
-            backgroundColor: AppColors.grey200,
-            child: Icon(Icons.person, size: 18, color: AppColors.grey700),
-          ),
-        ),
-      ],
     );
   }
 
-  Widget _buildContent(DeviceGalleryState state) {
+  void _openBackupSettings(BuildContext context) {
+    final galleryBloc = context.read<DeviceGalleryBloc>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: galleryBloc,
+          child: const BackupSettingsScreen(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, DeviceGalleryState state, {bool reserveToolbarSpace = true}) {
     if (state is DeviceGalleryLoadInProgress) {
-      return const Center(child: CircularProgressIndicator());
+      return Padding(
+        padding: EdgeInsets.only(top: reserveToolbarSpace ? kToolbarHeight : 0),
+        child: const Center(child: CircularProgressIndicator()),
+      );
     } else if (state is DeviceGalleryLoadSuccess) {
       if (state.groups.isEmpty) {
-        return const Center(child: Text('No photos found on device'));
+        return Padding(
+          padding: EdgeInsets.only(top: reserveToolbarSpace ? kToolbarHeight : 0),
+          child: const Center(child: Text('No photos found on device')),
+        );
       }
 
       return RefreshIndicator(
@@ -254,24 +478,18 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
           controller: _scrollController,
           cacheExtent: 1000, // Pre-render items outside view for smoother scrolling
           slivers: [
+            // Scrolls away with the rest of the content — unlike a fixed
+            // outer Padding, this lets photos flow up underneath the
+            // toolbar/pill row as the user scrolls, instead of leaving a
+            // permanent empty (white) gap there. Only covers the toolbar
+            // row itself (kToolbarHeight) — the status bar's own height is
+            // already handled by the Positioned clip around this widget.
+            // Skipped in selection mode, where a real AppBar already
+            // reserves that space.
+            if (reserveToolbarSpace)
+              const SliverToBoxAdapter(child: SizedBox(height: kToolbarHeight)),
             ...state.groups.expand((group) {
-              final groupIds = group.assets.map((a) => a.id).toSet();
-              final isGroupSelected =
-                  groupIds.every((id) => state.selectedAssetIds.contains(id));
-
               return [
-                SliverToBoxAdapter(
-                  child: DateSectionHeader(
-                    title: group.title,
-                    isSelected: isGroupSelected,
-                    isSelectionMode: state.selectedAssetIds.isNotEmpty,
-                    onToggleSelection: () {
-                      context
-                          .read<DeviceGalleryBloc>()
-                          .add(DeviceGalleryGroupSelectionToggled(group.title));
-                    },
-                  ),
-                ),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 2),
                   sliver: SliverGrid(
@@ -281,7 +499,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                       mainAxisSpacing: 2,
                     ),
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) {
+                          (context, index) {
                         final asset = group.assets[index];
                         final isDeleting = state.deletingAssetIds.contains(asset.id);
 
