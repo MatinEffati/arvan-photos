@@ -111,10 +111,10 @@ class AppColors {
   static const Color inactiveTrack = Color(0xFFDCDCDC);
   static const Color helpIconBackground = Color(0xFFF1F3F4);
   
-  // Specific Google Photos Peach theme variants found in UI
-  static const Color peachLight = Color(0xFFFFF1E4);
-  static const Color peachDark = Color(0xFF3C3229);
-  static const Color peachSelected = Color(0xFFFFDDBE);
+  // Specific Google Photos Peach theme variants (Aliased to user-requested names)
+  static const Color peachLight = layoutSegmentBackground;
+  static const Color peachDark = layoutIconMuted;
+  static const Color peachSelected = layoutSelectedCard;
 
   // --- ColorSchemes ---
   static const ColorScheme lightColorScheme = ColorScheme(

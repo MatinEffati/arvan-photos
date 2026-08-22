@@ -298,8 +298,15 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                               top: topOffset,
                               right: 16,
                               child: FloatingMoreButton(
-                                // TODO: open the per-photo view / menu.
-                                onTap: () {},
+                                onTap: () {
+                                  final galleryBloc = context.read<DeviceGalleryBloc>();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => BlocProvider.value(value: galleryBloc, child: const PhotosViewStubScreen()),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
                           ],
@@ -385,16 +392,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
             ),
             IconButton(
               icon: const Icon(Icons.folder_outlined, color: AppColors.grey800),
-              onPressed: () {
-                final galleryBloc = context.read<DeviceGalleryBloc>();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => BlocProvider.value(value: galleryBloc, child: const PhotosViewStubScreen()),
-                  ),
-                );
-              },
-              tooltip: 'Photos view',
+              onPressed: () {},
             ),
             Stack(
               alignment: Alignment.center,
@@ -575,13 +573,15 @@ class FloatingDatePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.layoutSegmentBackground,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: AppColors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(color: AppColors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
+        ],
       ),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.grey800),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.layoutIconMuted),
       ),
     );
   }
@@ -599,11 +599,13 @@ class FloatingMoreButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.layoutSegmentBackground,
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: AppColors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(color: AppColors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
+          ],
         ),
-        child: const Icon(Icons.more_vert, size: 20, color: AppColors.grey800),
+        child: const Icon(Icons.more_vert, size: 20, color: AppColors.layoutIconMuted),
       ),
     );
   }
@@ -622,21 +624,23 @@ class SelectionCountPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.peachLight,
+        color: AppColors.layoutSegmentBackground,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: AppColors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(color: AppColors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
             onTap: onClose,
-            child: const Icon(Icons.close, size: 20, color: AppColors.peachDark),
+            child: const Icon(Icons.close, size: 20, color: AppColors.layoutIconMuted),
           ),
           const SizedBox(width: 10),
           Text(
             '$count',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.peachDark),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.layoutIconMuted),
           ),
         ],
       ),
@@ -752,14 +756,14 @@ class _SelectionActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 24, color: AppColors.peachDark),
+            Icon(icon, size: 24, color: AppColors.layoutIconMuted),
             const SizedBox(height: 6),
             Text(
               label,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: AppColors.peachDark),
+              style: const TextStyle(fontSize: 12, color: AppColors.layoutIconMuted),
             ),
           ],
         ),

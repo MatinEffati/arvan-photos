@@ -1,16 +1,10 @@
 import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
-/// Cream color already established in the app's design system
-/// (see FloatingNavBar.barBgColor) — reused here so the floating date pill
-/// and the bottom nav pill feel like one consistent visual language.
-const Color kFloatingChipColor = AppColors.peachLight;
-const Color kFloatingChipTextColor = AppColors.peachDark;
 
-/// The rounded "Sat, Jun 27" chip that floats above the grid and reflects
-/// whichever date group is currently scrolled to the top — NOT a header
-/// pinned to its own group. Text is swapped via [ValueListenableBuilder]
-/// from outside, so this widget never rebuilds the grid itself.
+const Color kFloatingChipColor = AppColors.layoutSegmentBackground;
+const Color kFloatingChipTextColor = AppColors.layoutIconMuted;
+
 class FloatingDatePill extends StatelessWidget {
   const FloatingDatePill({required this.title, super.key});
 
@@ -25,20 +19,12 @@ class FloatingDatePill extends StatelessWidget {
         color: kFloatingChipColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: AppColors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: kFloatingChipTextColor,
-        ),
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kFloatingChipTextColor),
       ),
     );
   }
@@ -64,11 +50,7 @@ class FloatingMoreButton extends StatelessWidget {
           color: kFloatingChipColor,
           shape: BoxShape.circle,
           boxShadow: [
-            BoxShadow(
-              color: AppColors.black.withValues(alpha: 0.15),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
+            BoxShadow(color: AppColors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2)),
           ],
         ),
         child: const Icon(Icons.more_vert, color: kFloatingChipTextColor, size: 20),
@@ -89,8 +71,6 @@ class TopStatusBarScrim extends StatelessWidget {
   Widget build(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
     // Fully transparent — no scrim behind the status bar/date pill.
-    return IgnorePointer(
-      child: SizedBox(height: topInset + 48),
-    );
+    return IgnorePointer(child: SizedBox(height: topInset + 48));
   }
 }

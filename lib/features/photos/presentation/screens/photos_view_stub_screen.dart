@@ -35,9 +35,7 @@ class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
   Widget build(BuildContext context) {
     return BlocBuilder<DeviceGalleryBloc, DeviceGalleryState>(
       builder: (context, state) {
-        final currentLayout = state is DeviceGalleryLoadSuccess
-            ? _columnsToLayout(state.gridColumns)
-            : 'Day';
+        final currentLayout = state is DeviceGalleryLoadSuccess ? _columnsToLayout(state.gridColumns) : 'Day';
 
         return Scaffold(
           backgroundColor: AppColors.white,
@@ -52,11 +50,7 @@ class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
             ),
             title: const Text(
               'Photos view',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w400,
-              ),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.w400),
             ),
           ),
           body: SingleChildScrollView(
@@ -72,17 +66,14 @@ class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
                     selected: currentLayout,
                     onChanged: (layout) {
                       final columns = _layoutToColumns(layout);
-                      context
-                          .read<DeviceGalleryBloc>()
-                          .add(DeviceGalleryGridColumnsChanged(columns));
+                      context.read<DeviceGalleryBloc>().add(DeviceGalleryGridColumnsChanged(columns));
                     },
                   ),
                 ),
                 const SizedBox(height: 28),
                 _SwitchRow(
                   title: 'Stack similar photos',
-                  subtitle:
-                  'Automatically group similar photos that were taken together.',
+                  subtitle: 'Automatically group similar photos that were taken together.',
                   linkText: 'Learn more',
                   value: _stackSimilar,
                   onChanged: (value) => setState(() => _stackSimilar = value),
@@ -97,8 +88,7 @@ class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
                 const SizedBox(height: 20),
                 _SwitchRow(
                   title: 'Show shimmer',
-                  subtitle:
-                  'Outlines people or objects in your photos that you can take action on.',
+                  subtitle: 'Outlines people or objects in your photos that you can take action on.',
                   linkText: 'Learn more',
                   value: _showShimmer,
                   onChanged: (value) => setState(() => _showShimmer = value),
@@ -122,11 +112,7 @@ class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: AppColors.grey600,
-        ),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.grey600),
       ),
     );
   }
@@ -137,17 +123,14 @@ class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
 /// the selected column sits on a lighter card and its label sits
 /// inside a solid dark pill.
 class _LayoutSegmentedControl extends StatelessWidget {
-  const _LayoutSegmentedControl({
-    required this.selected,
-    required this.onChanged,
-  });
+  const _LayoutSegmentedControl({required this.selected, required this.onChanged});
 
   final String selected;
   final ValueChanged<String> onChanged;
 
   static const _items = <_LayoutItem>[
     _LayoutItem(label: 'Comfortable', icon: Icons.vertical_split_outlined),
-    _LayoutItem(label: 'Day', icon: Icons.grid_view_rounded),
+    _LayoutItem(label: 'Day', icon: Icons.grid_view_outlined),
     _LayoutItem(label: 'Month', icon: Icons.grid_on_rounded),
   ];
 
@@ -178,31 +161,20 @@ class _LayoutSegmentedControl extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(item.icon, color: AppColors.primary, size: 24),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 24),
                     if (isSelected)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(20)),
                         child: Text(
                           item.label,
-                          style: const TextStyle(
-                            color: AppColors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       )
                     else
                       Text(
                         item.label,
-                        style: const TextStyle(
-                          color: AppColors.textBrown,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                        ),
+                        style: const TextStyle(color: AppColors.textBrown, fontSize: 10, fontWeight: FontWeight.w500),
                       ),
                   ],
                 ),
@@ -246,7 +218,6 @@ class _SwitchRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
@@ -254,33 +225,20 @@ class _SwitchRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.textPrimary,
-                  ),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: AppColors.textPrimary),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 4),
                   RichText(
                     text: TextSpan(
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.35,
-                        color: AppColors.grey600,
-                      ),
+                      style: const TextStyle(fontSize: 13, height: 1.35, color: AppColors.grey600),
                       children: [
                         TextSpan(text: '$subtitle '),
                         if (linkText != null)
                           TextSpan(
                             text: linkText,
-                            style: const TextStyle(
-                              color: AppColors.grey600,
-                              decoration: TextDecoration.underline,
-                            ),
-                            recognizer: onLinkTap == null
-                                ? null
-                                : (TapGestureRecognizer()..onTap = onLinkTap),
+                            style: const TextStyle(color: AppColors.grey600, decoration: TextDecoration.underline),
+                            recognizer: onLinkTap == null ? null : (TapGestureRecognizer()..onTap = onLinkTap),
                           ),
                       ],
                     ),
