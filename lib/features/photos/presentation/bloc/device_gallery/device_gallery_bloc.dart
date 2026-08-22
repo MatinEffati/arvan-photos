@@ -1,5 +1,4 @@
-import 'dart:async';
-
+import 'package:arvan_photos/features/photos/data/datasources/photos_local_data_source.dart';
 import 'package:arvan_photos/features/photos/domain/entities/device_asset.dart';
 import 'package:arvan_photos/features/photos/domain/entities/local_photo_group.dart';
 import 'package:arvan_photos/features/photos/domain/usecases/get_local_gallery_usecase.dart';
@@ -19,6 +18,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
   DeviceGalleryBloc(
     this._getLocalGallery,
     this._prefs,
+    this._localDataSource,
   ) : super(DeviceGalleryInitial()) {
     on<DeviceGalleryRequested>(_onRequested);
     on<DeviceGallerySelectionToggled>(_onSelectionToggled);
@@ -27,6 +27,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     on<DeviceGallerySelectionCleared>(_onSelectionCleared);
     on<DeviceGalleryGridColumnsChanged>(_onGridColumnsChanged);
     on<DeviceGalleryAutoBackupToggled>(_onAutoBackupToggled);
+    on<DeviceGalleryBackupStatusChanged>(_onBackupStatusChanged);
 
     PhotoManager.addChangeCallback(_onGalleryChanged);
     PhotoManager.startChangeNotify();
@@ -34,6 +35,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
 
   final GetLocalGalleryUseCase _getLocalGallery;
   final SharedPreferences _prefs;
+  final PhotosLocalDataSource _localDataSource;
 
   static const String _gridColumnsKey = 'grid_columns';
   static const String _autoBackupKey = 'auto_backup_enabled';
@@ -63,11 +65,14 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       final gridColumns = _prefs.getInt(_gridColumnsKey) ?? 3;
       final isAutoBackupEnabled = _prefs.getBool(_autoBackupKey) ?? false;
 
-      // TODO: In a real app, we would check which assets are already backed up
-      // via a separate BackupRepository. For this UI exercise, we'll
-      // assume all assets are "not backed up" if auto-backup is off.
-      final notBackedUpCount = isAutoBackupEnabled ? 0 : assets.length;
-      final notBackedUpThumbnails = assets.take(5).toList();
+      final backedUpAssetIds = await _localDataSource.getAllBackedUpAssetIds();
+      
+      // Calculate not backed up count based on local DB
+      final notBackedUpCount = assets.where((a) => !backedUpAssetIds.contains(a.id)).length;
+      final notBackedUpThumbnails = assets
+          .where((a) => !backedUpAssetIds.contains(a.id))
+          .take(5)
+          .toList();
 
       emit(DeviceGalleryLoadSuccess(
         groups: groups,
@@ -76,6 +81,7 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
         isAutoBackupEnabled: isAutoBackupEnabled,
         notBackedUpCount: notBackedUpCount,
         notBackedUpThumbnails: notBackedUpThumbnails,
+        backedUpAssetIds: backedUpAssetIds,
       ));
     } catch (e) {
       emit(DeviceGalleryLoadFailure(e.toString()));
@@ -214,8 +220,25 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       // Update the state with the new toggle value
       emit(currentState.copyWith(
         isAutoBackupEnabled: event.enabled,
-        notBackedUpCount: event.enabled ? 0 : currentState.groups.expand((g) => g.assets).length,
       ));
+    }
+  }
+
+  void _onBackupStatusChanged(
+    DeviceGalleryBackupStatusChanged event,
+    Emitter<DeviceGalleryState> emit,
+  ) {
+    if (state is DeviceGalleryLoadSuccess) {
+      final currentState = state as DeviceGalleryLoadSuccess;
+      final backedUpIds = Set<String>.from(currentState.backedUpAssetIds);
+
+      if (event.isBackedUp) {
+        backedUpIds.add(event.assetId);
+      } else {
+        backedUpIds.remove(event.assetId);
+      }
+
+      emit(currentState.copyWith(backedUpAssetIds: backedUpIds));
     }
   }
 }

@@ -4,7 +4,11 @@ import 'package:injectable/injectable.dart';
 import 'package:xml/xml.dart';
 
 abstract class PhotosRemoteDataSource {
-  Future<void> uploadPhoto(File file, String remoteKey);
+  Future<void> uploadPhoto(
+    File file,
+    String remoteKey, {
+    void Function(int sent, int total)? onProgress,
+  });
   Future<void> deletePhoto(String remoteKey);
   Future<List<String>> listPhotos();
 }
@@ -16,8 +20,12 @@ class PhotosRemoteDataSourceImpl implements PhotosRemoteDataSource {
   final ArvanS3Client _s3client;
 
   @override
-  Future<void> uploadPhoto(File file, String remoteKey) {
-    return _s3client.upload(file, remoteKey);
+  Future<void> uploadPhoto(
+    File file,
+    String remoteKey, {
+    void Function(int sent, int total)? onProgress,
+  }) {
+    return _s3client.upload(file, remoteKey, onProgress: onProgress);
   }
 
   @override

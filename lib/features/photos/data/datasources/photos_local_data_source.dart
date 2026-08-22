@@ -9,6 +9,7 @@ abstract class PhotosLocalDataSource {
   });
   Future<String?> getRemoteKey(String assetId);
   Future<void> removeBackup(String assetId);
+  Future<Set<String>> getAllBackedUpAssetIds();
 }
 
 @LazySingleton(as: PhotosLocalDataSource)
@@ -16,6 +17,12 @@ class PhotosLocalDataSourceImpl implements PhotosLocalDataSource {
   PhotosLocalDataSourceImpl(this._db);
 
   final Database _db;
+
+  @override
+  Future<Set<String>> getAllBackedUpAssetIds() async {
+    final results = await _db.query('backup_registry', columns: ['asset_id']);
+    return results.map((e) => e['asset_id'] as String).toSet();
+  }
 
   @override
   Future<void> registerBackup({

@@ -6,6 +6,7 @@ import 'package:arvan_photos/features/photos/presentation/screens/backup_setting
 import 'package:arvan_photos/features/photos/presentation/screens/local_photo_detail_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/photos_view_stub_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/local_photo_grid_item.dart';
+import 'package:arvan_photos/features/photos/presentation/widgets/trash_confirmation_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -34,6 +35,12 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
   // lookup above.
   List<double> _groupStartOffsets = [];
   List<String> _groupTitles = [];
+
+  // Asset ids from the most recent trash confirmation, still waiting on
+  // DeleteSuccess/DeleteFailure. Drives the non-dismissible delete overlay:
+  // it stays up until every id in this set has resolved.
+  final Set<String> _pendingDeleteIds = {};
+  bool _deleteOverlayShown = false;
 
   static const double _kCollapseStart = 10;
   static const double _kCollapseEnd = 70;
@@ -115,6 +122,33 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
     }
   }
 
+  /// Shows the trash confirmation dialog, then (if confirmed) clears
+  /// selection, puts up the non-dismissible delete overlay, and fires one
+  /// DeletePhotoRequested per selected asset. The overlay is taken down by
+  /// the DeleteBloc listener once every id in _pendingDeleteIds resolves.
+  Future<void> _handleTrash(BuildContext context, DeviceGalleryState state) async {
+    if (state is! DeviceGalleryLoadSuccess) return;
+    final ids = state.selectedAssetIds.toList();
+    if (ids.isEmpty) return;
+
+    final confirmed = await showTrashConfirmationDialog(context, count: ids.length);
+    if (!confirmed || !context.mounted) return;
+
+    context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared());
+
+    setState(() {
+      _pendingDeleteIds
+        ..clear()
+        ..addAll(ids);
+      _deleteOverlayShown = true;
+    });
+    showDeletingOverlay(context);
+
+    for (final id in ids) {
+      context.read<DeleteBloc>().add(DeletePhotoRequested(id));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
@@ -131,6 +165,9 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         BlocListener<UploadBloc, UploadState>(
           listener: (context, state) {
             if (state is UploadSuccess) {
+              context.read<DeviceGalleryBloc>().add(
+                DeviceGalleryBackupStatusChanged(state.assetId, isBackedUp: true),
+              );
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup successful')));
             } else if (state is UploadFailure) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup failed: ${state.message}')));
@@ -140,9 +177,17 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         BlocListener<DeleteBloc, DeleteState>(
           listener: (context, state) {
             if (state is DeleteSuccess) {
+              _pendingDeleteIds.remove(state.assetId);
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted successfully')));
             } else if (state is DeleteFailure) {
+              _pendingDeleteIds.remove(state.assetId);
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: ${state.message}')));
+            }
+            // Once every id from the confirmed batch has resolved, dismiss
+            // the non-dismissible loading overlay pushed in _handleTrash.
+            if (_deleteOverlayShown && _pendingDeleteIds.isEmpty) {
+              _deleteOverlayShown = false;
+              Navigator.of(context, rootNavigator: true).pop();
             }
           },
         ),
@@ -151,164 +196,157 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         builder: (context, state) {
           final isSelectionMode = state is DeviceGalleryLoadSuccess && state.selectedAssetIds.isNotEmpty;
 
-        if (state is DeviceGalleryLoadSuccess) {
-          _computeGroupOffsets(context, state);
-        }
+          if (state is DeviceGalleryLoadSuccess) {
+            _computeGroupOffsets(context, state);
+          }
 
-        final selectedCount = state is DeviceGalleryLoadSuccess ? state.selectedAssetIds.length : 0;
+          final selectedCount = state is DeviceGalleryLoadSuccess ? state.selectedAssetIds.length : 0;
 
-        // Selection mode no longer branches into a separate Scaffold — it
-        // used to, which is exactly why the date pill / three-dot stopped
-        // appearing on scroll while selecting (that whole scroll-linked
-        // overlay lived only in the other branch). Now both modes share the
-        // same Stack; selection mode just swaps the top-left widget (count
-        // chip instead of logo/toolbar) and adds the bottom action sheet,
-        // while the scroll-driven scrim + date pill + "..." button behave
-        // identically either way.
-        return Scaffold(
-          extendBodyBehindAppBar: true,
-          body: Stack(
-            children: [
-              // Positioned with a fixed top clips the CustomScrollView's own
-              // viewport to start exactly at the status bar's bottom edge —
-              // a scroll viewport always clips its own content to its box,
-              // so nothing can ever paint above this line (unlike the old
-              // Padding/Opacity approach, which only hid it visually while
-              // still letting it scroll behind the status bar icons).
-              Positioned.fill(
-                top: MediaQuery.of(context).padding.top,
-                child: _buildContent(context, state, reserveToolbarSpace: !isSelectionMode),
-              ),
-              // The normal toolbar (logo, backup status, folder/+/bell/avatar)
-              // fades out as the user scrolls down, and is fully hidden (not
-              // just faded) in selection mode — the count chip below takes
-              // its place instead. Painted BELOW the scrim/pill/button
-              // layers so it never washes over them mid-crossfade.
-              if (!isSelectionMode)
+          // Selection mode no longer branches into a separate Scaffold — it
+          // used to, which is exactly why the date pill / three-dot stopped
+          // appearing on scroll while selecting (that whole scroll-linked
+          // overlay lived only in the other branch). Now both modes share the
+          // same Stack; selection mode just swaps the top-left widget (count
+          // chip instead of logo/toolbar) and adds the bottom action sheet,
+          // while the scroll-driven scrim + date pill + "..." button behave
+          // identically either way.
+          return Scaffold(
+            extendBodyBehindAppBar: true,
+            body: Stack(
+              children: [
+                // Positioned with a fixed top clips the CustomScrollView's own
+                // viewport to start exactly at the status bar's bottom edge —
+                // a scroll viewport always clips its own content to its box,
+                // so nothing can ever paint above this line (unlike the old
+                // Padding/Opacity approach, which only hid it visually while
+                // still letting it scroll behind the status bar icons).
+                Positioned.fill(
+                  top: MediaQuery.of(context).padding.top,
+                  child: _buildContent(context, state, reserveToolbarSpace: !isSelectionMode),
+                ),
+                // The normal toolbar (logo, backup status, folder/+/bell/avatar)
+                // fades out as the user scrolls down, and is fully hidden (not
+                // just faded) in selection mode — the count chip below takes
+                // its place instead. Painted BELOW the scrim/pill/button
+                // layers so it never washes over them mid-crossfade.
+                if (!isSelectionMode)
+                  ValueListenableBuilder<double>(
+                    valueListenable: _scrollProgress,
+                    builder: (context, progress, _) {
+                      return IgnorePointer(
+                        ignoring: progress > 0.5,
+                        child: Opacity(opacity: 1 - progress, child: _buildToolbar(context, state)),
+                      );
+                    },
+                  ),
+                // Selection count chip: always fully visible (this is an
+                // explicit user action, it shouldn't fade with scroll like the
+                // browse toolbar does), pinned top-left at the same height the
+                // toolbar/pill row uses.
+                if (isSelectionMode)
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 8,
+                    left: 16,
+                    child: SelectionCountPill(
+                      count: selectedCount,
+                      onClose: () => context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared()),
+                    ),
+                  ),
+                // Status bar scrim + floating date pill/"..." button — these
+                // fade in with scroll progress in BOTH modes now. They sit
+                // beside the count chip (center + right) rather than
+                // overlapping it.
                 ValueListenableBuilder<double>(
                   valueListenable: _scrollProgress,
                   builder: (context, progress, _) {
                     return IgnorePointer(
-                      ignoring: progress > 0.5,
-                      child: Opacity(opacity: 1 - progress, child: _buildToolbar(context, state)),
+                      ignoring: progress < 0.5,
+                      child: Opacity(opacity: progress, child: const TopStatusBarScrim()),
                     );
                   },
                 ),
-              // Selection count chip: always fully visible (this is an
-              // explicit user action, it shouldn't fade with scroll like the
-              // browse toolbar does), pinned top-left at the same height the
-              // toolbar/pill row uses.
-              if (isSelectionMode)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 8,
-                  left: 16,
-                  child: SelectionCountPill(
-                    count: selectedCount,
-                    onClose: () => context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared()),
-                  ),
-                ),
-              // Status bar scrim + floating date pill/"..." button — these
-              // fade in with scroll progress in BOTH modes now. They sit
-              // beside the count chip (center + right) rather than
-              // overlapping it.
-              ValueListenableBuilder<double>(
-                valueListenable: _scrollProgress,
-                builder: (context, progress, _) {
-                  return IgnorePointer(
-                    ignoring: progress < 0.5,
-                    child: Opacity(opacity: progress, child: const TopStatusBarScrim()),
-                  );
-                },
-              ),
-              ValueListenableBuilder<double>(
-                valueListenable: _scrollProgress,
-                builder: (context, progress, _) {
-                  final topOffset = MediaQuery.of(context).padding.top + 8;
-                  return IgnorePointer(
-                    ignoring: progress < 0.5,
-                    child: Opacity(
-                      opacity: progress,
-                      child: Stack(
-                        children: [
-                          // Date pill: physically centered top, regardless of
-                          // RTL/LTR — Positioned/Align use physical
-                          // coordinates, unlike Row's start/end.
-                          Positioned(
-                            top: topOffset,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: ValueListenableBuilder<String>(
-                                valueListenable: _currentGroupTitle,
-                                builder: (context, title, _) {
-                                  return AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 150),
-                                    child: FloatingDatePill(title: title),
-                                  );
-                                },
+                ValueListenableBuilder<double>(
+                  valueListenable: _scrollProgress,
+                  builder: (context, progress, _) {
+                    final topOffset = MediaQuery.of(context).padding.top + 8;
+                    return IgnorePointer(
+                      ignoring: progress < 0.5,
+                      child: Opacity(
+                        opacity: progress,
+                        child: Stack(
+                          children: [
+                            // Date pill: physically centered top, regardless of
+                            // RTL/LTR — Positioned/Align use physical
+                            // coordinates, unlike Row's start/end.
+                            Positioned(
+                              top: topOffset,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: ValueListenableBuilder<String>(
+                                  valueListenable: _currentGroupTitle,
+                                  builder: (context, title, _) {
+                                    return AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 150),
+                                      child: FloatingDatePill(title: title),
+                                    );
+                                  },
+                                ),
                               ),
                             ),
-                          ),
-                          // More button: pinned to the physical right edge.
-                          Positioned(
-                            top: topOffset,
-                            right: 16,
-                            child: FloatingMoreButton(
-                              // TODO: open the per-photo view / menu.
-                              onTap: () {},
+                            // More button: pinned to the physical right edge.
+                            Positioned(
+                              top: topOffset,
+                              right: 16,
+                              child: FloatingMoreButton(
+                                // TODO: open the per-photo view / menu.
+                                onTap: () {},
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-              // Selection action sheet: pinned to the bottom, always fully
-              // visible while selecting. MainNavigationScreen hides its own
-              // floating nav bar while this is up (see BlocBuilder there),
-              // so this no longer renders underneath it.
-              if (isSelectionMode)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: SafeArea(
-                    top: false,
-                    child: SelectionActionSheet(
-                      onBackUp: () {
-                        if (state is DeviceGalleryLoadSuccess) {
-                          for (final id in state.selectedAssetIds) {
-                            context.read<UploadBloc>().add(UploadPhotoRequested(assetId: id));
+                    );
+                  },
+                ),
+                // Selection action sheet: pinned to the bottom, always fully
+                // visible while selecting. MainNavigationScreen hides its own
+                // floating nav bar while this is up (see BlocBuilder there),
+                // so this no longer renders underneath it.
+                if (isSelectionMode)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: SafeArea(
+                      top: false,
+                      child: SelectionActionSheet(
+                        onBackUp: () {
+                          if (state is DeviceGalleryLoadSuccess) {
+                            for (final id in state.selectedAssetIds) {
+                              context.read<UploadBloc>().add(UploadPhotoRequested(assetId: id));
+                            }
+                            context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared());
                           }
+                        },
+                        onTrash: () => _handleTrash(context, state),
+                        onDeleteFromDevice: () {
                           context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared());
-                        }
-                      },
-                      onTrash: () {
-                        if (state is DeviceGalleryLoadSuccess) {
-                          for (final id in state.selectedAssetIds) {
-                            context.read<DeleteBloc>().add(DeletePhotoRequested(id));
-                          }
-                          context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared());
-                        }
-                      },
-                      onDeleteFromDevice: () {
-                        context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared());
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Delete from device coming soon')));
-                      },
-                      onStub: (label) => ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('$label is coming soon')),
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Delete from device coming soon')));
+                        },
+                        onStub: (label) => ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('$label is coming soon')),
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-        );
-      },
-    ),
-  );
-}
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   /// The normal (non-collapsed) toolbar row, painted as a plain white bar
   /// rather than a Scaffold AppBar so it can live inside the fading Stack.

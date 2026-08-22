@@ -13,9 +13,13 @@ class PhotosRepositoryImpl implements PhotosRepository {
   final PhotosRemoteDataSource _remoteDataSource;
 
   @override
-  Future<Either<Failure, void>> uploadPhoto(File file, String remoteKey) async {
+  Future<Either<Failure, void>> uploadPhoto(
+    File file,
+    String remoteKey, {
+    void Function(int sent, int total)? onProgress,
+  }) async {
     try {
-      await _remoteDataSource.uploadPhoto(file, remoteKey);
+      await _remoteDataSource.uploadPhoto(file, remoteKey, onProgress: onProgress);
       return const Right(null);
     } catch (e) {
       return Left(ErrorMapper.map(e));

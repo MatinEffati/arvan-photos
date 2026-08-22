@@ -53,4 +53,35 @@ class NotificationService {
   static Future<void> cancel(int id) async {
     await _notificationsPlugin.cancel(id: id);
   }
+
+  static Future<void> showUploadProgress({
+    required int id,
+    required String title,
+    required int progress,
+    bool isComplete = false,
+  }) async {
+    final androidDetails = AndroidNotificationDetails(
+      channelId,
+      channelName,
+      channelDescription: 'Upload progress notifications',
+      importance: Importance.low,
+      priority: Priority.low,
+      showProgress: true,
+      maxProgress: 100,
+      progress: progress,
+      onlyAlertOnce: true,
+      ongoing: !isComplete,
+    );
+
+    final notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await _notificationsPlugin.show(
+      id: id,
+      title: title,
+      body: isComplete ? 'Upload complete' : 'Uploading...',
+      notificationDetails: notificationDetails,
+    );
+  }
 }

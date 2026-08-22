@@ -10,7 +10,11 @@ class UploadPhotoUseCase {
 
   final PhotosRepository _repository;
 
-  Future<Either<Failure, void>> call(File file, String remoteKey) {
-    return _repository.uploadPhoto(file, remoteKey);
+  Future<Either<Failure, void>> call(
+    File file,
+    String remoteKey, {
+    void Function(int sent, int total)? onProgress,
+  }) {
+    return _repository.uploadPhoto(file, remoteKey, onProgress: onProgress);
   }
 }

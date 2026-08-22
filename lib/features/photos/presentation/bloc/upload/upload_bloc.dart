@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:arvan_photos/core/services/notification_service.dart';
 import 'package:arvan_photos/features/photos/data/datasources/photos_local_data_source.dart';
 import 'package:arvan_photos/features/photos/domain/usecases/get_asset_path_usecase.dart';
 import 'package:arvan_photos/features/photos/domain/usecases/upload_photo_usecase.dart';
@@ -18,7 +19,7 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     this._uploadPhoto,
     this._getAssetPath,
     this._localDataSource,
-  ) : super(UploadInitial()) {
+  ) : super(const UploadInitial()) {
     on<UploadPhotoRequested>(_onUploadRequested);
   }
 
@@ -31,11 +32,15 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     UploadPhotoRequested event,
     Emitter<UploadState> emit,
   ) async {
-    emit(UploadInProgress(event.assetId));
+    final newProgressMap = Map<String, double>.from(state.progressMap);
+    newProgressMap[event.assetId] = 0.0;
+    
+    emit(UploadInProgress(event.assetId, progressMap: newProgressMap));
     
     final path = await _getAssetPath(event.assetId);
     if (path == null) {
-      emit(UploadFailure(event.assetId, 'File not found on device'));
+      newProgressMap.remove(event.assetId);
+      emit(UploadFailure(event.assetId, 'File not found on device', progressMap: newProgressMap));
       return;
     }
 
@@ -44,17 +49,56 @@ class UploadBloc extends Bloc<UploadEvent, UploadState> {
     final originalFilename = p.basename(path);
     final remoteKey = 'photos/${_uuid.v4()}$extension';
     
-    final result = await _uploadPhoto(file, remoteKey);
+    final notificationId = event.assetId.hashCode;
+    
+    final result = await _uploadPhoto(
+      file, 
+      remoteKey,
+      onProgress: (sent, total) {
+        final progress = sent / total;
+        final updatedMap = Map<String, double>.from(state.progressMap);
+        updatedMap[event.assetId] = progress;
+        
+        emit(UploadInProgress(event.assetId, progressMap: updatedMap));
+        
+        NotificationService.showUploadProgress(
+          id: notificationId,
+          title: originalFilename,
+          progress: (progress * 100).toInt(),
+        );
+      },
+    );
     
     await result.fold(
-      (failure) async => emit(UploadFailure(event.assetId, failure.message)),
+      (failure) async {
+        final finalMap = Map<String, double>.from(state.progressMap);
+        finalMap.remove(event.assetId);
+        
+        NotificationService.cancel(notificationId);
+        
+        emit(UploadFailure(event.assetId, failure.message, progressMap: finalMap));
+      },
       (_) async {
         await _localDataSource.registerBackup(
           assetId: event.assetId,
           remoteKey: remoteKey,
           originalFilename: originalFilename,
         );
-        emit(UploadSuccess(event.assetId));
+        
+        final finalMap = Map<String, double>.from(state.progressMap);
+        finalMap.remove(event.assetId);
+        
+        NotificationService.showUploadProgress(
+          id: notificationId,
+          title: originalFilename,
+          progress: 100,
+          isComplete: true,
+        );
+        
+        // Let the notification stay for a moment then cancel if needed, 
+        // or just leave it as "Complete"
+        
+        emit(UploadSuccess(event.assetId, progressMap: finalMap));
       },
     );
   }

@@ -26,7 +26,11 @@ class ArvanS3Client {
     );
   }
 
-  Future<void> upload(File file, String remoteKey) async {
+  Future<void> upload(
+    File file,
+    String remoteKey, {
+    void Function(int sent, int total)? onProgress,
+  }) async {
     final bytes = await file.readAsBytes();
     final baseUri = Uri.parse(_config.arvanEndpoint);
     
@@ -63,6 +67,7 @@ class ArvanS3Client {
       options: Options(
         headers: signedRequest.headers,
       ),
+      onSendProgress: onProgress,
     );
   }
 

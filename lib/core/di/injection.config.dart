@@ -93,6 +93,7 @@ extension GetItInjectableX on _i174.GetIt {
       () => _i725.DeviceGalleryBloc(
         gh<_i586.GetLocalGalleryUseCase>(),
         gh<_i460.SharedPreferences>(),
+        gh<_i418.PhotosLocalDataSource>(),
       ),
     );
     gh.lazySingleton<_i1016.PhotosRepository>(

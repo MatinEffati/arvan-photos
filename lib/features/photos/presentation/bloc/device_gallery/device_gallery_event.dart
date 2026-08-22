@@ -50,3 +50,12 @@ class DeviceGalleryAutoBackupToggled extends DeviceGalleryEvent {
   @override
   List<Object?> get props => [enabled];
 }
+
+class DeviceGalleryBackupStatusChanged extends DeviceGalleryEvent {
+  const DeviceGalleryBackupStatusChanged(this.assetId, {required this.isBackedUp});
+  final String assetId;
+  final bool isBackedUp;
+
+  @override
+  List<Object?> get props => [assetId, isBackedUp];
+}
