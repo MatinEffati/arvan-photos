@@ -31,34 +31,18 @@ class DeviceGallerySelectAllToggled extends DeviceGalleryEvent {
   const DeviceGallerySelectAllToggled();
 }
 
-class DeviceGalleryBackupRequested extends DeviceGalleryEvent {
-  const DeviceGalleryBackupRequested();
-}
-
-class DeviceGalleryDeleteFromCloudRequested extends DeviceGalleryEvent {
-  const DeviceGalleryDeleteFromCloudRequested(this.assetIds);
-  final List<String> assetIds;
-
-  @override
-  List<Object?> get props => [assetIds];
-}
-
-class DeviceGalleryAutoBackupToggled extends DeviceGalleryEvent {
-  const DeviceGalleryAutoBackupToggled(this.isEnabled);
-  final bool isEnabled;
-
-  @override
-  List<Object?> get props => [isEnabled];
-}
-
-class DeviceGallerySettingsRequested extends DeviceGalleryEvent {
-  const DeviceGallerySettingsRequested();
-}
-
 class DeviceGalleryGridColumnsChanged extends DeviceGalleryEvent {
   const DeviceGalleryGridColumnsChanged(this.columns);
   final int columns;
 
   @override
   List<Object?> get props => [columns];
+}
+
+class DeviceGalleryAutoBackupToggled extends DeviceGalleryEvent {
+  const DeviceGalleryAutoBackupToggled(this.enabled);
+  final bool enabled;
+
+  @override
+  List<Object?> get props => [enabled];
 }

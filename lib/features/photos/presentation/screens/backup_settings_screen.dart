@@ -1,5 +1,6 @@
 import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/core/theme/app_spacing.dart';
+import 'package:arvan_photos/features/photos/domain/entities/device_asset.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -133,7 +134,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                     setState(() => _tooltipDismissed = true);
                     context.read<DeviceGalleryBloc>().add(DeviceGalleryAutoBackupToggled(value));
                   },
-                  activeColor: Colors.white,
+                  activeThumbColor: Colors.white,
                   activeTrackColor: AppColors.primary,
                   inactiveThumbColor: _RefColors.titleBlack,
                   inactiveTrackColor: const Color(0xFFDCDCDC),

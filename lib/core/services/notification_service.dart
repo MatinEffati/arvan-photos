@@ -5,18 +5,15 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  static const String channelId = 'upload_channel';
-  static const String channelName = 'Photo Uploads';
+  static const String channelId = 'general_channel';
+  static const String channelName = 'General Notifications';
 
   static const AndroidNotificationChannel _androidChannel =
       AndroidNotificationChannel(
         channelId,
         channelName,
-        description: 'Shows progress of photo uploads',
-        importance: Importance.high,
-        playSound: false,
-        enableVibration: false,
-        showBadge: true,
+        description: 'General notifications for Arvan Photos',
+        importance: Importance.defaultImportance,
       );
 
   static Future<void> ensureChannelCreated() async {
@@ -48,58 +45,9 @@ class NotificationService {
 
     await _notificationsPlugin.initialize(
       settings: settings,
-      onDidReceiveNotificationResponse: (details) {
-        if (details.actionId != null) {
-          if (service != null) {
-            service.invoke(details.actionId!);
-          } else {
-            FlutterBackgroundService().invoke(details.actionId!);
-          }
-        }
-      },
     );
 
-    // Create the notification channel for Android
     await ensureChannelCreated();
-  }
-
-  static Future<void> showUploadProgress({
-    required int id,
-    required String title,
-    required int progress,
-    required int total,
-    bool isPaused = false,
-    bool isComplete = false,
-  }) async {
-    final androidDetails = AndroidNotificationDetails(
-      _androidChannel.id,
-      _androidChannel.name,
-      channelDescription: _androidChannel.description,
-      importance: isComplete ? Importance.defaultImportance : Importance.high,
-      priority: isComplete ? Priority.defaultPriority : Priority.high,
-      showProgress: !isComplete,
-      maxProgress: 100,
-      progress: progress,
-      ongoing: !isComplete,
-      onlyAlertOnce: true,
-      ticker: 'Upload Progress',
-      actions: isComplete
-          ? null
-          : [
-              if (!isPaused)
-                const AndroidNotificationAction('pause', 'Pause')
-              else
-                const AndroidNotificationAction('resume', 'Resume'),
-              const AndroidNotificationAction('stop', 'Stop'),
-            ],
-    );
-
-    await _notificationsPlugin.show(
-      id: id,
-      title: title,
-      body: isComplete ? 'All files backed up successfully' : 'Overall Progress: $progress%',
-      notificationDetails: NotificationDetails(android: androidDetails),
-    );
   }
 
   static Future<void> cancel(int id) async {

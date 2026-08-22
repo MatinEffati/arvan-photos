@@ -1,12 +1,8 @@
 import 'package:arvan_photos/core/theme/app_colors.dart';
-import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_bloc.dart';
-import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_event.dart';
-import 'package:arvan_photos/features/photos/presentation/bloc/backup_status/backup_status_state.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/backup_settings_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/local_photo_detail_screen.dart';
 import 'package:arvan_photos/features/photos/presentation/screens/photos_view_stub_screen.dart';
-import 'package:arvan_photos/features/photos/presentation/widgets/date_section_header.dart';
 import 'package:arvan_photos/features/photos/presentation/widgets/local_photo_grid_item.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -45,15 +41,15 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     context.read<DeviceGalleryBloc>().add(const DeviceGalleryRequested());
-    context.read<BackupStatusBloc>().add(BackupStatusStarted());
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _scrollProgress.dispose();
     _currentGroupTitle.dispose();
     super.dispose();
@@ -70,8 +66,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
   void _onScroll() {
     final offset = _scrollController.offset;
 
-    final progress = ((offset - _kCollapseStart) / (_kCollapseEnd - _kCollapseStart))
-        .clamp(0.0, 1.0);
+    final progress = ((offset - _kCollapseStart) / (_kCollapseEnd - _kCollapseStart)).clamp(0.0, 1.0);
     if (progress != _scrollProgress.value) {
       _scrollProgress.value = progress;
     }
@@ -118,53 +113,18 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
     }
   }
 
-  void _confirmBulkDeleteCloud(BuildContext context, List<String> assetIds, BackupStatusState statusState) {
-    final syncedIds = assetIds.where((id) => statusState.statuses[id]?.status == 'synced').toList();
-    if (syncedIds.isEmpty) return;
-
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete from Cloud'),
-        content: Text('Are you sure you want to delete ${syncedIds.length} photos from ArvanCloud? Local files will remain.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              context.read<DeviceGalleryBloc>().add(DeviceGalleryDeleteFromCloudRequested(syncedIds));
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<DeviceGalleryBloc, DeviceGalleryState>(
       listener: (context, state) {
-        if (state is DeviceGalleryBackupSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Backup tasks enqueued successfully')),
-          );
-        } else if (state is DeviceGalleryLoadFailure) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${state.message}')),
-          );
+        if (state is DeviceGalleryLoadFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${state.message}')));
         } else if (state is DeviceGalleryLoadSuccess && state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${state.errorMessage}')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${state.errorMessage}')));
         }
       },
       builder: (context, state) {
-        final isSelectionMode =
-            state is DeviceGalleryLoadSuccess && state.selectedAssetIds.isNotEmpty;
+        final isSelectionMode = state is DeviceGalleryLoadSuccess && state.selectedAssetIds.isNotEmpty;
 
         if (state is DeviceGalleryLoadSuccess) {
           _computeGroupOffsets(context, state);
@@ -174,7 +134,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         // explicit user action, it shouldn't fade away on scroll).
         if (isSelectionMode) {
           return Scaffold(
-            appBar: _buildSelectionAppBar(context, state as DeviceGalleryLoadSuccess),
+            appBar: _buildSelectionAppBar(context, state),
             body: _buildContent(context, state, reserveToolbarSpace: false),
           );
         }
@@ -189,10 +149,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
               // so nothing can ever paint above this line (unlike the old
               // Padding/Opacity approach, which only hid it visually while
               // still letting it scroll behind the status bar icons).
-              Positioned.fill(
-                top: MediaQuery.of(context).padding.top,
-                child: _buildContent(context, state),
-              ),
+              Positioned.fill(top: MediaQuery.of(context).padding.top, child: _buildContent(context, state)),
               // The normal toolbar (logo, backup status, folder/+/bell/avatar)
               // fades out as the user scrolls down. Painted BELOW the
               // scrim/pill/button layers so it never washes over them
@@ -202,10 +159,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                 builder: (context, progress, _) {
                   return IgnorePointer(
                     ignoring: progress > 0.5,
-                    child: Opacity(
-                      opacity: 1 - progress,
-                      child: _buildToolbar(context, state),
-                    ),
+                    child: Opacity(opacity: 1 - progress, child: _buildToolbar(context, state)),
                   );
                 },
               ),
@@ -257,7 +211,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                             top: topOffset,
                             right: 16,
                             child: FloatingMoreButton(
-                              // TODO(next task): open the per-photo view / menu.
+                              // TODO: open the per-photo view / menu.
                               onTap: () {},
                             ),
                           ),
@@ -279,59 +233,18 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
       backgroundColor: Theme.of(context).colorScheme.surface,
       leading: IconButton(
         icon: const Icon(Icons.close),
-        onPressed: () =>
-            context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectAllToggled()),
+        onPressed: () => context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectAllToggled()),
       ),
       title: Text('${state.selectedAssetIds.length} selected'),
-      actions: [
-        if (state is DeviceGalleryActionInProgress)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          )
-        else ...[
-          BlocBuilder<BackupStatusBloc, BackupStatusState>(
-            builder: (context, statusState) {
-              final anySynced = state.selectedAssetIds.any((id) => statusState.statuses[id]?.status == 'synced');
-              if (anySynced) {
-                return IconButton(
-                  icon: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
-                  onPressed: () {
-                    _confirmBulkDeleteCloud(context, state.selectedAssetIds.toList(), statusState);
-                  },
-                  tooltip: 'Delete selected from Cloud',
-                );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<DeviceGalleryBloc>().add(const DeviceGalleryBackupRequested());
-            },
-            child: const Text('Back Up', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ],
     );
   }
 
   /// The normal (non-collapsed) toolbar row, painted as a plain white bar
   /// rather than a Scaffold AppBar so it can live inside the fading Stack.
   Widget _buildToolbar(BuildContext context, DeviceGalleryState state) {
-    String statusText = 'Gallery';
+    var backupStatus = 'Backup is off';
     if (state is DeviceGalleryLoadSuccess) {
-      if (state.isAutoBackupEnabled) {
-        statusText = state.notBackedUpCount > 0 ? 'Backing up...' : 'Backed up';
-      } else {
-        statusText = 'Backup is off';
-      }
+      backupStatus = state.isAutoBackupEnabled ? 'Backup is on' : 'Backup is off';
     }
 
     return Container(
@@ -342,24 +255,38 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
         child: Row(
           children: [
             const SizedBox(width: 16),
+            Image.asset('assets/app_icon.png', height: 28),
+            const SizedBox(width: 12),
             Expanded(
-              child: GestureDetector(
-                onTap: () => _openBackupSettings(context),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => BlocProvider.value(
+                        value: context.read<DeviceGalleryBloc>(),
+                        child: const BackupSettingsScreen(),
+                      ),
+                    ),
+                  );
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Generic gallery mark in the app's own brand color —
-                    // deliberately not a reproduction of Google's pinwheel
-                    // logo (that's Google's trademark, not something to
-                    // clone 1:1).
-                    const Icon(Icons.photo_library_rounded, color: AppColors.primary, size: 26),
-                    const SizedBox(width: 10),
+                    const Text(
+                      'Photos',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF3C4043),
+                      ),
+                    ),
                     Text(
-                      statusText,
+                      backupStatus,
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: 12,
                         color: Color(0xFF5F6368),
-                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
@@ -373,10 +300,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (_) => BlocProvider.value(
-                      value: galleryBloc,
-                      child: const PhotosViewStubScreen(),
-                    ),
+                    builder: (_) => BlocProvider.value(value: galleryBloc, child: const PhotosViewStubScreen()),
                   ),
                 );
               },
@@ -404,53 +328,15 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
               icon: const Icon(Icons.notifications_outlined, color: Color(0xFF3C4043)),
               onPressed: () {},
             ),
-            Padding(
-              padding: const EdgeInsets.only(right: 12, left: 4),
-              child: GestureDetector(
-                onTap: () => _openBackupSettings(context),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const CircleAvatar(
-                      radius: 15,
-                      backgroundColor: AppColors.grey200,
-                      child: Icon(Icons.person, size: 18, color: AppColors.grey700),
-                    ),
-                    Positioned(
-                      bottom: -2,
-                      right: -2,
-                      child: Container(
-                        width: 15,
-                        height: 15,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 2),
-                          ],
-                        ),
-                        child: const Icon(Icons.notifications_off, size: 9, color: Color(0xFF3C4043)),
-                      ),
-                    ),
-                  ],
-                ),
+            const Padding(
+              padding: EdgeInsets.only(right: 12, left: 4),
+              child: CircleAvatar(
+                radius: 15,
+                backgroundColor: AppColors.grey200,
+                child: Icon(Icons.person, size: 18, color: AppColors.grey700),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _openBackupSettings(BuildContext context) {
-    final galleryBloc = context.read<DeviceGalleryBloc>();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: galleryBloc,
-          child: const BackupSettingsScreen(),
         ),
       ),
     );
@@ -478,16 +364,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
           controller: _scrollController,
           cacheExtent: 1000, // Pre-render items outside view for smoother scrolling
           slivers: [
-            // Scrolls away with the rest of the content — unlike a fixed
-            // outer Padding, this lets photos flow up underneath the
-            // toolbar/pill row as the user scrolls, instead of leaving a
-            // permanent empty (white) gap there. Only covers the toolbar
-            // row itself (kToolbarHeight) — the status bar's own height is
-            // already handled by the Positioned clip around this widget.
-            // Skipped in selection mode, where a real AppBar already
-            // reserves that space.
-            if (reserveToolbarSpace)
-              const SliverToBoxAdapter(child: SizedBox(height: kToolbarHeight)),
+            if (reserveToolbarSpace) const SliverToBoxAdapter(child: SizedBox(height: kToolbarHeight)),
             ...state.groups.expand((group) {
               return [
                 SliverPadding(
@@ -498,58 +375,48 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                       crossAxisSpacing: 2,
                       mainAxisSpacing: 2,
                     ),
-                    delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                        final asset = group.assets[index];
-                        final isDeleting = state.deletingAssetIds.contains(asset.id);
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final asset = group.assets[index];
 
-                        return LocalPhotoGridItem(
-                          key: ValueKey(asset.id),
-                          asset: asset,
-                          isDeleting: isDeleting,
-                          onTap: () {
-                            if (isDeleting) return;
-                            if (state.selectedAssetIds.isNotEmpty) {
-                              context
-                                  .read<DeviceGalleryBloc>()
-                                  .add(DeviceGallerySelectionToggled(asset.id));
-                            } else {
-                              final allAssets = state.groups.expand((g) => g.assets).toList();
-                              final galleryBloc = context.read<DeviceGalleryBloc>();
-                              final statusBloc = context.read<BackupStatusBloc>();
+                      return LocalPhotoGridItem(
+                        key: ValueKey(asset.id),
+                        asset: asset,
+                        onTap: () {
+                          if (state.selectedAssetIds.isNotEmpty) {
+                            context.read<DeviceGalleryBloc>().add(DeviceGallerySelectionToggled(asset.id));
+                          } else {
+                            final allAssets = state.groups.expand((g) => g.assets).toList();
+                            final galleryBloc = context.read<DeviceGalleryBloc>();
 
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => MultiBlocProvider(
-                                    providers: [
-                                      BlocProvider.value(value: galleryBloc),
-                                      BlocProvider.value(value: statusBloc),
-                                    ],
-                                    child: LocalPhotoDetailScreen(
-                                      assets: allAssets.map((a) => AssetEntity(
-                                        id: a.id,
-                                        typeInt: AssetType.image.index,
-                                        width: a.width ?? 0,
-                                        height: a.height ?? 0,
-                                        duration: a.duration?.inSeconds ?? 0,
-                                      )).toList(),
-                                      initialIndex: allAssets.indexOf(asset),
-                                    ),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => BlocProvider.value(
+                                  value: galleryBloc,
+                                  child: LocalPhotoDetailScreen(
+                                    assets: allAssets
+                                        .map(
+                                          (a) => AssetEntity(
+                                            id: a.id,
+                                            typeInt: AssetType.image.index,
+                                            width: a.width ?? 0,
+                                            height: a.height ?? 0,
+                                            duration: a.duration?.inSeconds ?? 0,
+                                          ),
+                                        )
+                                        .toList(),
+                                    initialIndex: allAssets.indexOf(asset),
                                   ),
                                 ),
-                              );
-                            }
-                          },
-                          onLongPress: () {
-                            context
-                                .read<DeviceGalleryBloc>()
-                                .add(DeviceGallerySelectionToggled(asset.id));
-                          },
-                        );
-                      },
-                      childCount: group.assets.length,
-                    ),
+                              ),
+                            );
+                          }
+                        },
+                        onLongPress: () {
+                          context.read<DeviceGalleryBloc>().add(DeviceGallerySelectionToggled(asset.id));
+                        },
+                      );
+                    }, childCount: group.assets.length),
                   ),
                 ),
               ];
@@ -560,5 +427,58 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
       );
     }
     return const SizedBox.shrink();
+  }
+}
+
+class TopStatusBarScrim extends StatelessWidget {
+  const TopStatusBarScrim({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(height: MediaQuery.of(context).padding.top, color: Colors.white.withValues(alpha: 0.9));
+  }
+}
+
+class FloatingDatePill extends StatelessWidget {
+  const FloatingDatePill({required this.title, super.key});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF3C4043)),
+      ),
+    );
+  }
+}
+
+class FloatingMoreButton extends StatelessWidget {
+  const FloatingMoreButton({required this.onTap, super.key});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
+        ),
+        child: const Icon(Icons.more_vert, size: 20, color: Color(0xFF3C4043)),
+      ),
+    );
   }
 }

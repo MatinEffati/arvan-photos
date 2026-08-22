@@ -2,20 +2,12 @@ import 'dart:async';
 
 import 'package:arvan_photos/features/photos/domain/entities/device_asset.dart';
 import 'package:arvan_photos/features/photos/domain/entities/local_photo_group.dart';
-import 'package:arvan_photos/features/photos/domain/usecases/delete_backup_from_cloud_usecase.dart';
-import 'package:arvan_photos/features/photos/domain/usecases/enqueue_backup_usecase.dart';
-import 'package:arvan_photos/features/photos/domain/usecases/get_asset_path_usecase.dart';
-import 'package:arvan_photos/features/photos/domain/usecases/get_backup_status_usecase.dart';
-import 'package:arvan_photos/features/photos/domain/usecases/get_cloud_count_usecase.dart';
 import 'package:arvan_photos/features/photos/domain/usecases/get_local_gallery_usecase.dart';
-import 'package:arvan_photos/features/photos/domain/usecases/get_synced_ids_usecase.dart';
-import 'package:arvan_photos/features/photos/domain/usecases/watch_backup_status_usecase.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/services.dart';
 import 'package:injectable/injectable.dart';
 import 'package:intl/intl.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,53 +18,24 @@ part 'device_gallery_state.dart';
 class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
   DeviceGalleryBloc(
     this._getLocalGallery,
-    this._getBackupStatuses,
-    this._getSyncedIds,
-    this._getAssetPath,
-    this._getCloudCount,
-    this._enqueueBackup,
-    this._deleteBackup,
-    this._watchBackupStatus,
     this._prefs,
   ) : super(DeviceGalleryInitial()) {
     on<DeviceGalleryRequested>(_onRequested);
     on<DeviceGallerySelectionToggled>(_onSelectionToggled);
     on<DeviceGalleryGroupSelectionToggled>(_onGroupSelectionToggled);
     on<DeviceGallerySelectAllToggled>(_onSelectAllToggled);
-    on<DeviceGalleryBackupRequested>(_onBackupRequested);
-    on<DeviceGalleryDeleteFromCloudRequested>(_onDeleteFromCloudRequested);
-    on<DeviceGalleryAutoBackupToggled>(_onAutoBackupToggled);
-    on<DeviceGallerySettingsRequested>(_onSettingsRequested);
     on<DeviceGalleryGridColumnsChanged>(_onGridColumnsChanged);
-
-    _statusSubscription = _watchBackupStatus().listen((event) {
-      final status = event['status'] as String?;
-      if (status == 'synced' || status == 'manually_removed') {
-        _debounceTimer?.cancel();
-        _debounceTimer = Timer(const Duration(seconds: 2), () {
-          add(const DeviceGallerySettingsRequested());
-        });
-      }
-    });
+    on<DeviceGalleryAutoBackupToggled>(_onAutoBackupToggled);
 
     PhotoManager.addChangeCallback(_onGalleryChanged);
     PhotoManager.startChangeNotify();
   }
 
   final GetLocalGalleryUseCase _getLocalGallery;
-  final GetBackupStatusUseCase _getBackupStatuses;
-  final GetSyncedIdsUseCase _getSyncedIds;
-  final GetAssetPathUseCase _getAssetPath;
-  final GetCloudCountUseCase _getCloudCount;
-  final EnqueueBackupUseCase _enqueueBackup;
-  final DeleteBackupFromCloudUseCase _deleteBackup;
-  final WatchBackupStatusUseCase _watchBackupStatus;
   final SharedPreferences _prefs;
-  StreamSubscription? _statusSubscription;
-  Timer? _debounceTimer;
 
-  static const String _autoBackupKey = 'auto_backup_enabled';
   static const String _gridColumnsKey = 'grid_columns';
+  static const String _autoBackupKey = 'auto_backup_enabled';
 
   void _onGalleryChanged(MethodCall call) {
     add(const DeviceGalleryRequested());
@@ -82,8 +45,6 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
   Future<void> close() {
     PhotoManager.removeChangeCallback(_onGalleryChanged);
     PhotoManager.stopChangeNotify();
-    _statusSubscription?.cancel();
-    _debounceTimer?.cancel();
     return super.close();
   }
 
@@ -98,48 +59,23 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
       final assets = await _getLocalGallery();
       final groups = await _groupAssetsAsync(assets);
       
-      final isAutoBackupEnabled = _prefs.getBool(_autoBackupKey) ?? false;
       final gridColumns = _prefs.getInt(_gridColumnsKey) ?? 3;
-      final syncedIds = await _getSyncedIds();
-      final syncedIdsSet = syncedIds.toSet();
-      
-      final allStatuses = await _getBackupStatuses();
-      final inQueueSet = allStatuses.map((e) => e.assetId).toSet();
+      final isAutoBackupEnabled = _prefs.getBool(_autoBackupKey) ?? false;
 
-      final notSyncedAssets = assets.where((a) => !syncedIdsSet.contains(a.id)).toList();
-      
-      final cloudCountResult = await _getCloudCount();
-      final cloudCount = cloudCountResult.fold((_) => 0, (count) => count);
+      // TODO: In a real app, we would check which assets are already backed up
+      // via a separate BackupRepository. For this UI exercise, we'll
+      // assume all assets are "not backed up" if auto-backup is off.
+      final notBackedUpCount = isAutoBackupEnabled ? 0 : assets.length;
+      final notBackedUpThumbnails = assets.take(5).toList();
 
       emit(DeviceGalleryLoadSuccess(
         groups: groups,
         selectedAssetIds: const {},
-        isAutoBackupEnabled: isAutoBackupEnabled,
-        notBackedUpCount: notSyncedAssets.length,
-        notBackedUpThumbnails: notSyncedAssets.take(4).toList(),
-        cloudCount: cloudCount,
         gridColumns: gridColumns,
+        isAutoBackupEnabled: isAutoBackupEnabled,
+        notBackedUpCount: notBackedUpCount,
+        notBackedUpThumbnails: notBackedUpThumbnails,
       ));
-
-      if (isAutoBackupEnabled) {
-        final toEnqueueAssets = assets
-            .where((a) =>
-                !syncedIdsSet.contains(a.id) && !inQueueSet.contains(a.id))
-            .toList();
-
-        if (toEnqueueAssets.isNotEmpty) {
-          final toEnqueue = <Map<String, String>>[];
-          for (final asset in toEnqueueAssets) {
-            final path = await _getAssetPath(asset.id);
-            if (path != null) {
-              toEnqueue.add({'id': asset.id, 'path': path});
-            }
-          }
-          if (toEnqueue.isNotEmpty) {
-            await _enqueueBackup(toEnqueue);
-          }
-        }
-      }
     } catch (e) {
       emit(DeviceGalleryLoadFailure(e.toString()));
     }
@@ -245,84 +181,14 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
     }
   }
 
-  Future<void> _onBackupRequested(
-    DeviceGalleryBackupRequested event,
+  Future<void> _onGridColumnsChanged(
+    DeviceGalleryGridColumnsChanged event,
     Emitter<DeviceGalleryState> emit,
   ) async {
     if (state is DeviceGalleryLoadSuccess) {
       final currentState = state as DeviceGalleryLoadSuccess;
-      if (currentState.selectedAssetIds.isEmpty) return;
-
-      final permission = await Permission.notification.status;
-      if (!permission.isGranted) {
-        await Permission.notification.request();
-      }
-
-      emit(DeviceGalleryBackupInProgress(
-        groups: currentState.groups,
-        selectedAssetIds: currentState.selectedAssetIds,
-        isAutoBackupEnabled: currentState.isAutoBackupEnabled,
-        notBackedUpCount: currentState.notBackedUpCount,
-        notBackedUpThumbnails: currentState.notBackedUpThumbnails,
-      ));
-
-      final assets = currentState.groups
-          .expand((g) => g.assets)
-          .where((a) => currentState.selectedAssetIds.contains(a.id))
-          .toList();
-
-      final toEnqueue = <Map<String, String>>[];
-      for (final asset in assets) {
-        final path = await _getAssetPath(asset.id);
-        if (path != null) {
-          toEnqueue.add({'id': asset.id, 'path': path});
-        }
-      }
-
-      final result = await _enqueueBackup(toEnqueue);
-
-      result.fold(
-        (failure) => emit(DeviceGalleryLoadFailure(failure.message)),
-        (_) => emit(DeviceGalleryBackupSuccess(
-          groups: currentState.groups,
-          selectedAssetIds: const {},
-          isAutoBackupEnabled: currentState.isAutoBackupEnabled,
-          notBackedUpCount: currentState.notBackedUpCount,
-          notBackedUpThumbnails: currentState.notBackedUpThumbnails,
-        )),
-      );
-    }
-  }
-
-  Future<void> _onDeleteFromCloudRequested(
-    DeviceGalleryDeleteFromCloudRequested event,
-    Emitter<DeviceGalleryState> emit,
-  ) async {
-    if (state is DeviceGalleryLoadSuccess) {
-      final currentState = state as DeviceGalleryLoadSuccess;
-      
-      emit(DeviceGalleryActionInProgress(
-        groups: currentState.groups,
-        selectedAssetIds: currentState.selectedAssetIds,
-        deletingAssetIds: Set.from(event.assetIds),
-        isAutoBackupEnabled: currentState.isAutoBackupEnabled,
-        notBackedUpCount: currentState.notBackedUpCount,
-        notBackedUpThumbnails: currentState.notBackedUpThumbnails,
-      ));
-
-      final result = await _deleteBackup(event.assetIds);
-      
-      result.fold(
-        (failure) {
-          emit(currentState.copyWith(
-            deletingAssetIds: {},
-            errorMessage: failure.message,
-          ));
-        },
-        (_) {
-          add(const DeviceGalleryRequested());
-        },
-      );
+      await _prefs.setInt(_gridColumnsKey, event.columns);
+      emit(currentState.copyWith(gridColumns: event.columns));
     }
   }
 
@@ -332,66 +198,13 @@ class DeviceGalleryBloc extends Bloc<DeviceGalleryEvent, DeviceGalleryState> {
   ) async {
     if (state is DeviceGalleryLoadSuccess) {
       final currentState = state as DeviceGalleryLoadSuccess;
+      await _prefs.setBool(_autoBackupKey, event.enabled);
       
-      await _prefs.setBool(_autoBackupKey, event.isEnabled);
-      
-      emit(currentState.copyWith(isAutoBackupEnabled: event.isEnabled));
-
-      if (event.isEnabled) {
-        final allAssets = currentState.groups.expand((g) => g.assets).toList();
-        final syncedIds = await _getSyncedIds();
-        final syncedIdsSet = syncedIds.toSet();
-
-        final toEnqueueAssets =
-            allAssets.where((a) => !syncedIdsSet.contains(a.id)).toList();
-
-        if (toEnqueueAssets.isNotEmpty) {
-          final toEnqueue = <Map<String, String>>[];
-          for (final asset in toEnqueueAssets) {
-            final path = await _getAssetPath(asset.id);
-            if (path != null) {
-              toEnqueue.add({'id': asset.id, 'path': path});
-            }
-          }
-          if (toEnqueue.isNotEmpty) {
-            await _enqueueBackup(toEnqueue);
-          }
-        }
-      }
-    }
-  }
-
-  Future<void> _onSettingsRequested(
-    DeviceGallerySettingsRequested event,
-    Emitter<DeviceGalleryState> emit,
-  ) async {
-    if (state is DeviceGalleryLoadSuccess) {
-      final currentState = state as DeviceGalleryLoadSuccess;
-      final syncedIds = await _getSyncedIds();
-      final syncedIdsSet = syncedIds.toSet();
-      
-      final allAssets = currentState.groups.expand((g) => g.assets).toList();
-      final notSyncedAssets = allAssets.where((a) => !syncedIdsSet.contains(a.id)).toList();
-
-      final cloudCountResult = await _getCloudCount();
-      final cloudCount = cloudCountResult.fold((_) => 0, (count) => count);
-
+      // Update the state with the new toggle value
       emit(currentState.copyWith(
-        notBackedUpCount: notSyncedAssets.length,
-        notBackedUpThumbnails: notSyncedAssets.take(4).toList(),
-        cloudCount: cloudCount,
+        isAutoBackupEnabled: event.enabled,
+        notBackedUpCount: event.enabled ? 0 : currentState.groups.expand((g) => g.assets).length,
       ));
-    }
-  }
-
-  Future<void> _onGridColumnsChanged(
-    DeviceGalleryGridColumnsChanged event,
-    Emitter<DeviceGalleryState> emit,
-  ) async {
-    if (state is DeviceGalleryLoadSuccess) {
-      final currentState = state as DeviceGalleryLoadSuccess;
-      await _prefs.setInt(_gridColumnsKey, event.columns);
-      emit(currentState.copyWith(gridColumns: event.columns));
     }
   }
 }
