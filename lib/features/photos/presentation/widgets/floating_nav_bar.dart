@@ -9,7 +9,7 @@ class FloatingNavBar extends StatelessWidget {
   final Function(int) onItemSelected;
 
   static const Color barBgColor = AppColors.layoutSegmentBackground;
-  static const Color selectedItemColor = AppColors.layoutSelectedCard;
+  static const Color selectedItemColor = AppColors.secondaryContainer;
   static const Color onSurfaceColor = AppColors.layoutIconMuted;
 
   @override

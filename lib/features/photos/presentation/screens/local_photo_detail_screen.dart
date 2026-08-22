@@ -1,12 +1,12 @@
 import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
-import 'package:flutter/services.dart';
 
 const List<String> _kMonthAbbr = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

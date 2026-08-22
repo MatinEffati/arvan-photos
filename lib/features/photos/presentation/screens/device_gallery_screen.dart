@@ -20,9 +20,15 @@ class DeviceGalleryScreen extends StatefulWidget {
 
 class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
+  double _lastOffset = 0;
 
-  // Drives the collapsing toolbar <-> floating pill crossfade. 0 = toolbar
-  // fully shown (top of list), 1 = toolbar hidden / pill+scrim fully shown.
+  // Drives the sliding app bar. 0 = fully visible, -kToolbarHeight = fully hidden.
+  final ValueNotifier<double> _appBarYOffset = ValueNotifier(0.0);
+
+  // Drives the background color. true = white, false = peach/cream.
+  final ValueNotifier<bool> _isAtTop = ValueNotifier(true);
+
+  // Drives the floating pill crossfade. 0 = toolbar fully shown, 1 = toolbar hidden.
   final ValueNotifier<double> _scrollProgress = ValueNotifier(0);
 
   // Which date group is currently at the top of the viewport — this is what
@@ -60,6 +66,8 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
       ..removeListener(_onScroll)
       ..dispose();
     _scrollProgress.dispose();
+    _appBarYOffset.dispose();
+    _isAtTop.dispose();
     _currentGroupTitle.dispose();
     super.dispose();
   }
@@ -74,6 +82,21 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
 
   void _onScroll() {
     final offset = _scrollController.offset;
+    final delta = offset - _lastOffset;
+    _lastOffset = offset;
+
+    // Handle background color trigger: white at top, peach otherwise.
+    _isAtTop.value = offset <= 0;
+
+    // Handle sliding app bar visibility (drawer effect).
+    if (offset <= 0) {
+      _appBarYOffset.value = 0.0;
+    } else {
+      // Scrolling down (delta > 0) hides, scrolling up (delta < 0) shows.
+      // Now only clamps to kToolbarHeight, sliding "behind" the fixed status bar.
+      final newY = (_appBarYOffset.value - delta).clamp(-kToolbarHeight, 0.0);
+      _appBarYOffset.value = newY;
+    }
 
     final progress = ((offset - _kCollapseStart) / (_kCollapseEnd - _kCollapseStart)).clamp(0.0, 1.0);
     if (progress != _scrollProgress.value) {
@@ -220,98 +243,126 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                 // Padding/Opacity approach, which only hid it visually while
                 // still letting it scroll behind the status bar icons).
                 Positioned.fill(
-                  top: MediaQuery.of(context).padding.top,
+                  top: MediaQuery.viewPaddingOf(context).top,
                   child: _buildContent(context, state, reserveToolbarSpace: !isSelectionMode),
                 ),
                 // The normal toolbar (logo, backup status, folder/+/bell/avatar)
-                // fades out as the user scrolls down, and is fully hidden (not
-                // just faded) in selection mode — the count chip below takes
-                // its place instead. Painted BELOW the scrim/pill/button
-                // layers so it never washes over them mid-crossfade.
+                // slides up as the user scrolls down (drawer effect), and is 
+                // fully hidden in selection mode.
                 if (!isSelectionMode)
                   ValueListenableBuilder<double>(
-                    valueListenable: _scrollProgress,
-                    builder: (context, progress, _) {
-                      return IgnorePointer(
-                        ignoring: progress > 0.5,
-                        child: Opacity(opacity: 1 - progress, child: _buildToolbar(context, state)),
+                    valueListenable: _appBarYOffset,
+                    builder: (context, yOffset, _) {
+                      final statusBarHeight = MediaQuery.viewPaddingOf(context).top;
+                      return Stack(
+                        children: [
+                          Positioned(
+                            // Pinned below the status bar, sliding to -kToolbarHeight
+                            top: statusBarHeight + yOffset,
+                            left: 0,
+                            right: 0,
+                            child: ValueListenableBuilder<bool>(
+                              valueListenable: _isAtTop,
+                              builder: (context, isAtTop, _) {
+                                return _buildToolbar(
+                                  context,
+                                  state,
+                                  backgroundColor: isAtTop ? AppColors.white : AppColors.layoutSegmentBackground,
+                                );
+                              },
+                            ),
+                          ),
+                          // Dynamic status bar scrim: matches the toolbar color when it's visible,
+                          // but stays white when the toolbar is hidden (collapsed) or at the top.
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: ValueListenableBuilder<bool>(
+                              valueListenable: _isAtTop,
+                              builder: (context, isAtTop, _) {
+                                final color = (yOffset > -kToolbarHeight && !isAtTop)
+                                    ? AppColors.layoutSegmentBackground
+                                    : AppColors.white;
+                                return Container(
+                                  height: statusBarHeight,
+                                  color: color,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
-                // Selection count chip: always fully visible (this is an
-                // explicit user action, it shouldn't fade with scroll like the
-                // browse toolbar does), pinned top-left at the same height the
-                // toolbar/pill row uses.
+                // Fixed status bar for selection mode (always white)
                 if (isSelectionMode)
-                  Positioned(
-                    top: MediaQuery.of(context).padding.top + 8,
-                    left: 16,
-                    child: SelectionCountPill(
-                      count: selectedCount,
-                      onClose: () => context.read<DeviceGalleryBloc>().add(const DeviceGallerySelectionCleared()),
-                    ),
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: TopStatusBarScrim(),
                   ),
-                // Status bar scrim + floating date pill/"..." button — these
-                // fade in with scroll progress in BOTH modes now. They sit
-                // beside the count chip (center + right) rather than
-                // overlapping it.
                 ValueListenableBuilder<double>(
                   valueListenable: _scrollProgress,
                   builder: (context, progress, _) {
-                    return IgnorePointer(
-                      ignoring: progress < 0.5,
-                      child: Opacity(opacity: progress, child: const TopStatusBarScrim()),
-                    );
-                  },
-                ),
-                ValueListenableBuilder<double>(
-                  valueListenable: _scrollProgress,
-                  builder: (context, progress, _) {
-                    final topOffset = MediaQuery.of(context).padding.top + 8;
-                    return IgnorePointer(
-                      ignoring: progress < 0.5,
-                      child: Opacity(
-                        opacity: progress,
-                        child: Stack(
-                          children: [
-                            // Date pill: physically centered top, regardless of
-                            // RTL/LTR — Positioned/Align use physical
-                            // coordinates, unlike Row's start/end.
-                            Positioned(
-                              top: topOffset,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: ValueListenableBuilder<String>(
-                                  valueListenable: _currentGroupTitle,
-                                  builder: (context, title, _) {
-                                    return AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 150),
-                                      child: FloatingDatePill(title: title),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            // More button: pinned to the physical right edge.
-                            Positioned(
-                              top: topOffset,
-                              right: 16,
-                              child: FloatingMoreButton(
-                                onTap: () {
-                                  final galleryBloc = context.read<DeviceGalleryBloc>();
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => BlocProvider.value(value: galleryBloc, child: const PhotosViewStubScreen()),
+                    return ValueListenableBuilder<double>(
+                      valueListenable: _appBarYOffset,
+                      builder: (context, yOffset, _) {
+                        final statusBarHeight = MediaQuery.viewPaddingOf(context).top;
+                        final totalBarHeight = kToolbarHeight + statusBarHeight;
+                        // Calculate dynamic top: 
+                        // When yOffset is 0 (bar fully visible), top is totalBarHeight + 8
+                        // When yOffset is -totalBarHeight (bar hidden), top is statusBarHeight + 8
+                        final dynamicTop = (totalBarHeight + yOffset).clamp(statusBarHeight, double.infinity) + 8;
+
+                        return IgnorePointer(
+                          ignoring: progress < 0.5,
+                          child: Opacity(
+                            opacity: progress,
+                            child: Stack(
+                              children: [
+                                // Date pill
+                                Positioned(
+                                  top: dynamicTop,
+                                  left: 0,
+                                  right: 0,
+                                  child: Center(
+                                    child: ValueListenableBuilder<String>(
+                                      valueListenable: _currentGroupTitle,
+                                      builder: (context, title, _) {
+                                        return AnimatedSwitcher(
+                                          duration: const Duration(milliseconds: 150),
+                                          child: FloatingDatePill(title: title),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
-                              ),
+                                  ),
+                                ),
+                                // More button
+                                Positioned(
+                                  top: dynamicTop,
+                                  right: 16,
+                                  child: FloatingMoreButton(
+                                    onTap: () {
+                                      final galleryBloc = context.read<DeviceGalleryBloc>();
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => BlocProvider.value(
+                                            value: galleryBloc,
+                                            child: const PhotosViewStubScreen(),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -356,76 +407,73 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
     );
   }
 
-  /// The normal (non-collapsed) toolbar row, painted as a plain white bar
+  /// The normal (non-collapsed) toolbar row, painted as a plain bar
   /// rather than a Scaffold AppBar so it can live inside the fading Stack.
-  Widget _buildToolbar(BuildContext context, DeviceGalleryState state) {
+  Widget _buildToolbar(BuildContext context, DeviceGalleryState state, {required Color backgroundColor}) {
     var backupStatus = 'Backup is off';
     if (state is DeviceGalleryLoadSuccess) {
       backupStatus = state.isAutoBackupEnabled ? 'Backup is on' : 'Backup is off';
     }
 
     return Container(
-      color: AppColors.white,
-      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
-      child: SizedBox(
-        height: kToolbarHeight,
-        child: Row(
-          children: [
-            const SizedBox(width: 16),
-            Image.asset('assets/app_icon.png', height: 28),
-            const SizedBox(width: 4),
-            Expanded(
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => BlocProvider.value(
-                        value: context.read<DeviceGalleryBloc>(),
-                        child: const BackupSettingsScreen(),
-                      ),
+      color: backgroundColor,
+      height: kToolbarHeight,
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Image.asset('assets/app_icon.png', height: 28),
+          const SizedBox(width: 4),
+          Expanded(
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => BlocProvider.value(
+                      value: context.read<DeviceGalleryBloc>(),
+                      child: const BackupSettingsScreen(),
                     ),
-                  );
-                },
-                child: Text(backupStatus, style: const TextStyle(fontSize: 12)),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.folder_outlined, color: AppColors.grey800),
-              onPressed: () {},
-            ),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.add, color: AppColors.grey800),
-                  onPressed: () {},
-                ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(color: AppColors.googleRed, shape: BoxShape.circle),
                   ),
-                ),
-              ],
+                );
+              },
+              child: Text(backupStatus, style: const TextStyle(fontSize: 12)),
             ),
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined, color: AppColors.grey800),
-              onPressed: () {},
-            ),
-            const Padding(
-              padding: EdgeInsets.only(right: 12, left: 4),
-              child: CircleAvatar(
-                radius: 15,
-                backgroundColor: AppColors.grey200,
-                child: Icon(Icons.person, size: 18, color: AppColors.grey700),
+          ),
+          IconButton(
+            icon: const Icon(Icons.folder_outlined, color: AppColors.grey800),
+            onPressed: () {},
+          ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.add, color: AppColors.grey800),
+                onPressed: () {},
               ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: AppColors.googleRed, shape: BoxShape.circle),
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: AppColors.grey800),
+            onPressed: () {},
+          ),
+          const Padding(
+            padding: EdgeInsets.only(right: 12, left: 4),
+            child: CircleAvatar(
+              radius: 15,
+              backgroundColor: AppColors.grey200,
+              child: Icon(Icons.person, size: 18, color: AppColors.grey700),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -555,11 +603,16 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
 }
 
 class TopStatusBarScrim extends StatelessWidget {
-  const TopStatusBarScrim({super.key});
+  const TopStatusBarScrim({this.backgroundColor = AppColors.white, super.key});
+
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    return Container(height: MediaQuery.of(context).padding.top, color: AppColors.white.withValues(alpha: 0.9));
+    return Container(
+      height: MediaQuery.viewPaddingOf(context).top,
+      color: backgroundColor,
+    );
   }
 }
 

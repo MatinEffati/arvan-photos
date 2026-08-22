@@ -76,18 +76,39 @@ class LocalPhotoGridItem extends StatelessWidget {
                       Positioned(
                         top: 4,
                         left: 4,
-                        child: Icon(
-                          isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                          color: isSelected ? AppColors.primary : AppColors.white,
-                          size: 24,
-                          shadows: [
-                            Shadow(
-                              color: AppColors.black.withValues(alpha: 0.45),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
+                        child: isSelected
+                            ? Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.circle,
+                                    color: AppColors.white,
+                                    size: 20,
+                                  ),
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: AppColors.primary,
+                                    size: 24,
+                                  ),
+                                  const Icon(
+                                    Icons.check,
+                                    color: AppColors.white,
+                                    size: 16,
+                                  ),
+                                ],
+                              )
+                            : Icon(
+                                Icons.radio_button_unchecked,
+                                color: AppColors.white.withValues(alpha: 0.6),
+                                size: 24,
+                                shadows: [
+                                  Shadow(
+                                    color: AppColors.black.withValues(alpha: 0.45),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
                       ),
 
                     Positioned(

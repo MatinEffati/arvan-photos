@@ -48,25 +48,35 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
               ),
             ],
           ),
-          body: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTitle(isAutoBackupEnabled),
-                _buildToggleRow(context, isAutoBackupEnabled),
-                const SizedBox(height: AppSpacing.m),
-                _buildAccountRow(isAutoBackupEnabled),
-                _buildQualityRow(isAutoBackupEnabled),
-                const Divider(height: 1, thickness: 1, color: AppColors.divider),
-                if (!isAutoBackupEnabled && state.notBackedUpCount > 0)
-                  _buildNotBackedUpSection(context, state),
-                const SizedBox(height: AppSpacing.l),
-                _buildSafetyBanner(context),
-                const SizedBox(height: AppSpacing.m),
-                _buildHelpRow(),
-                const SizedBox(height: AppSpacing.xl),
-              ],
-            ),
+          body: Stack(
+            children: [
+              SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTitle(isAutoBackupEnabled),
+                    _buildToggleRow(context, isAutoBackupEnabled),
+                    const SizedBox(height: AppSpacing.m),
+                    _buildAccountRow(isAutoBackupEnabled),
+                    _buildQualityRow(isAutoBackupEnabled),
+                    const Divider(height: 1, thickness: 1, color: AppColors.divider),
+                    if (!isAutoBackupEnabled && state.notBackedUpCount > 0)
+                      _buildNotBackedUpSection(context, state),
+                    const SizedBox(height: AppSpacing.l),
+                    _buildSafetyBanner(context),
+                    const SizedBox(height: AppSpacing.m),
+                    _buildHelpRow(),
+                    const SizedBox(height: AppSpacing.xl),
+                  ],
+                ),
+              ),
+              // Floating tooltip overlaid on top of the content — it does
+              // NOT take up layout space, so the rows below (Backup
+              // account, Quality, ...) never shift or gain extra spacing
+              // because of it.
+              if (!isAutoBackupEnabled && !_tooltipDismissed)
+                _buildFloatingTooltip(context),
+            ],
           ),
         );
       },
@@ -91,60 +101,84 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
   Widget _buildToggleRow(BuildContext context, bool isAutoBackupEnabled) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Back up photos & videos on this device automatically',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.textPrimary,
-                    height: 1.35,
-                  ),
-                ),
+          const Expanded(
+            child: Text(
+              'Back up photos & videos on this device automatically',
+              style: TextStyle(
+                fontSize: 15,
+                color: AppColors.textPrimary,
+                height: 1.35,
               ),
-              const SizedBox(width: AppSpacing.s),
-              Transform.scale(
-                scale: 0.9,
-                child: Switch(
-                  value: isAutoBackupEnabled,
-                  onChanged: (value) {
-                    setState(() => _tooltipDismissed = true);
-                    context.read<DeviceGalleryBloc>().add(DeviceGalleryAutoBackupToggled(value));
-                  },
-                  activeThumbColor: AppColors.white,
-                  activeTrackColor: AppColors.primary,
-                  inactiveThumbColor: AppColors.textPrimary,
-                  inactiveTrackColor: AppColors.inactiveTrack,
-                ),
-              ),
-            ],
+            ),
           ),
-          if (!isAutoBackupEnabled && !_tooltipDismissed) ...[
-            const SizedBox(height: AppSpacing.s),
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: () => setState(() => _tooltipDismissed = true),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentBrown,
-                    borderRadius: BorderRadius.circular(10),
+          const SizedBox(width: AppSpacing.s),
+          Transform.scale(
+            scale: 0.9,
+            child: Switch(
+              value: isAutoBackupEnabled,
+              onChanged: (value) {
+                setState(() => _tooltipDismissed = true);
+                context.read<DeviceGalleryBloc>().add(DeviceGalleryAutoBackupToggled(value));
+              },
+              activeThumbColor: AppColors.white,
+              activeTrackColor: AppColors.primary,
+              inactiveThumbColor: AppColors.textPrimary,
+              inactiveTrackColor: AppColors.inactiveTrack,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Speech-bubble style floating tooltip, positioned as an overlay via
+  /// [Positioned] so it does NOT participate in the column's layout flow.
+  /// The rows below the toggle (Backup account, Quality, ...) keep their
+  /// normal spacing regardless of whether this tooltip is shown.
+  /// The top offset approximates the bottom-right of the toggle row —
+  /// adjust it if the title/toggle styles above change.
+  Widget _buildFloatingTooltip(BuildContext context) {
+    return Positioned(
+      top: 130,
+      right: AppSpacing.l,
+      child: GestureDetector(
+        onTap: () => setState(() => _tooltipDismissed = true),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Tail pointing up toward the switch, offset in from the
+            // right edge of the bubble below it.
+            Padding(
+              padding: const EdgeInsets.only(right: 18),
+              child: CustomPaint(
+                size: const Size(18, 8),
+                painter: _TooltipTailPainter(color: AppColors.accentBrown),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.accentBrown,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                  child: const Text(
-                    'Turn on automatic backup',
-                    style: TextStyle(color: AppColors.white, fontSize: 13),
-                  ),
-                ),
+                ],
+              ),
+              child: const Text(
+                'Turn on automatic backup',
+                style: TextStyle(color: AppColors.white, fontSize: 14),
               ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -159,7 +193,18 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
           color: isAutoBackupEnabled ? AppColors.textPrimary : AppColors.grey500,
         ),
       ),
-      trailing: Icon(Icons.chevron_right, color: AppColors.grey500.withValues(alpha: 0.6)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'example@gmail.com',
+            style: TextStyle(
+              fontSize: 14,
+              color: isAutoBackupEnabled ? AppColors.grey700 : AppColors.grey500,
+            ),
+          ),
+        ],
+      ),
       onTap: isAutoBackupEnabled ? () {} : null,
     );
   }
@@ -192,17 +237,18 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            // Center the red badge between the title and subtitle lines
+            // instead of pinning it to the top.
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 22,
-                height: 22,
-                margin: const EdgeInsets.only(top: 2),
+                width: 18,
+                height: 18,
                 decoration: const BoxDecoration(
-                  color: AppColors.alertRed,
+                  color: Colors.red,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.priority_high, color: AppColors.white, size: 16),
+                child: const Icon(Icons.priority_high, color: AppColors.white, size: 14),
               ),
               const SizedBox(width: AppSpacing.m),
               Expanded(
@@ -211,7 +257,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                   children: [
                     const Text(
                       'Backup is off',
-                      style: TextStyle(fontSize: 15, color: AppColors.textPrimary),
+                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
                     ),
                     Text(
                       '${state.notBackedUpCount} items not backed up',
@@ -287,14 +333,13 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(Icons.shield_outlined, color: AppColors.shieldBlue, size: 22),
             const SizedBox(width: AppSpacing.m),
             Expanded(
               child: Text.rich(
                 TextSpan(
-                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4),
+                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4,fontWeight: FontWeight.w500),
                   children: [
                     const TextSpan(
                       text: 'The photos and videos you back up are kept safe and secure. ',
@@ -328,11 +373,11 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
-                  color: AppColors.helpIconBackground,
-                  borderRadius: BorderRadius.circular(20),
+                  color: AppColors.bannerBackground,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.help_outline, color: AppColors.textPrimary, size: 20),
               ),
@@ -347,4 +392,26 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
       ),
     );
   }
+}
+
+/// Draws a small upward-pointing triangle used as the tooltip's tail,
+/// connecting the speech-bubble banner to the toggle above it.
+class _TooltipTailPainter extends CustomPainter {
+  const _TooltipTailPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TooltipTailPainter oldDelegate) => oldDelegate.color != color;
 }
