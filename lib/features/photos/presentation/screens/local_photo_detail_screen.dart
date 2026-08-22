@@ -6,6 +6,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:flutter/services.dart';
 
 const List<String> _kMonthAbbr = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -25,6 +26,7 @@ class LocalPhotoDetailScreen extends StatefulWidget {
   @override
   State<LocalPhotoDetailScreen> createState() => _LocalPhotoDetailScreenState();
 }
+
 
 class _LocalPhotoDetailScreenState extends State<LocalPhotoDetailScreen> {
   late PageController _pageController;
@@ -64,76 +66,96 @@ class _LocalPhotoDetailScreenState extends State<LocalPhotoDetailScreen> {
       builder: (context, galleryState) {
         final currentAsset = widget.assets[_currentIndex];
 
-        return Scaffold(
-          backgroundColor: AppColors.white,
-          body: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            color: _chromeVisible ? AppColors.white : AppColors.black,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: PhotoViewGallery.builder(
-                    scrollPhysics: const BouncingScrollPhysics(),
-                    builder: (context, index) {
-                      return PhotoViewGalleryPageOptions(
-                        imageProvider: AssetEntityImageProvider(
-                          widget.assets[index],
-                        ),
-                        initialScale: PhotoViewComputedScale.contained,
-                        minScale: PhotoViewComputedScale.contained * 1,
-                        maxScale: PhotoViewComputedScale.covered * 4,
-                        heroAttributes: PhotoViewHeroAttributes(
-                          tag: widget.assets[index].id,
-                        ),
-                        onTapUp: (context, details, controllerValue) =>
-                            _toggleChrome(),
-                      );
-                    },
-                    itemCount: widget.assets.length,
-                    loadingBuilder: (context, event) => const Center(
-                      child: CircularProgressIndicator(),
+        final systemUiStyle = _chromeVisible
+            ? const SystemUiOverlayStyle(
+                statusBarColor: AppColors.white,
+                statusBarIconBrightness: Brightness.dark,
+                systemNavigationBarColor: AppColors.white,
+                systemNavigationBarIconBrightness: Brightness.dark,
+              )
+            : const SystemUiOverlayStyle(
+                statusBarColor: AppColors.transparent,
+                statusBarIconBrightness: Brightness.light,
+                systemNavigationBarColor: AppColors.transparent,
+                systemNavigationBarIconBrightness: Brightness.light,
+              );
+
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: systemUiStyle,
+          child: Scaffold(
+            backgroundColor: _chromeVisible ? AppColors.white : AppColors.black,
+            body: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              color: _chromeVisible ? AppColors.white : AppColors.black,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: PhotoViewGallery.builder(
+                      scrollPhysics: const BouncingScrollPhysics(),
+                      backgroundDecoration: BoxDecoration(
+                        color: _chromeVisible ? AppColors.white : AppColors.black,
+                      ),
+                      builder: (context, index) {
+                        return PhotoViewGalleryPageOptions(
+                          imageProvider: AssetEntityImageProvider(
+                            widget.assets[index],
+                          ),
+                          initialScale: PhotoViewComputedScale.contained,
+                          minScale: PhotoViewComputedScale.contained * 1,
+                          maxScale: PhotoViewComputedScale.covered * 4,
+                          heroAttributes: PhotoViewHeroAttributes(
+                            tag: widget.assets[index].id,
+                          ),
+                          onTapUp: (context, details, controllerValue) =>
+                              _toggleChrome(),
+                        );
+                      },
+                      itemCount: widget.assets.length,
+                      loadingBuilder: (context, event) => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                      pageController: _pageController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentIndex = index;
+                        });
+                      },
                     ),
-                    pageController: _pageController,
-                    onPageChanged: (index) {
-                      setState(() {
-                        _currentIndex = index;
-                      });
-                    },
                   ),
-                ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    ignoring: !_chromeVisible,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: _chromeVisible ? 1 : 0,
-                      child: SafeArea(
-                        bottom: false,
-                        child: _buildTopChrome(context, currentAsset),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      ignoring: !_chromeVisible,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 200),
+                        opacity: _chromeVisible ? 1 : 0,
+                        child: SafeArea(
+                          bottom: false,
+                          child: _buildTopChrome(context, currentAsset),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    ignoring: !_chromeVisible,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: _chromeVisible ? 1 : 0,
-                      child: SafeArea(
-                        top: false,
-                        child: _buildBottomChrome(context),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      ignoring: !_chromeVisible,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 200),
+                        opacity: _chromeVisible ? 1 : 0,
+                        child: SafeArea(
+                          top: false,
+                          child: _buildBottomChrome(context),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
