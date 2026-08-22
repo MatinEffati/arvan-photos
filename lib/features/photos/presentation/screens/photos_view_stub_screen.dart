@@ -40,20 +40,20 @@ class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
             : 'Day';
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.white,
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
             elevation: 0,
             centerTitle: false,
             titleSpacing: 4,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
             title: const Text(
               'Photos view',
               style: TextStyle(
-                color: Colors.black87,
+                color: AppColors.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.w400,
               ),
@@ -107,7 +107,7 @@ class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
                 const SizedBox(height: 20),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Divider(height: 1, color: Color(0xFFE6E6E6)),
+                  child: Divider(height: 1, color: AppColors.dividerLight),
                 ),
               ],
             ),
@@ -125,7 +125,7 @@ class _PhotosViewStubScreenState extends State<PhotosViewStubScreen> {
         style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          color: Color(0xFF757575),
+          color: AppColors.grey600,
         ),
       ),
     );
@@ -171,7 +171,7 @@ class _LayoutSegmentedControl extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.white.withValues(alpha: 0.55) : Colors.transparent,
+                  color: isSelected ? AppColors.white.withValues(alpha: 0.55) : AppColors.transparent,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Column(
@@ -189,7 +189,7 @@ class _LayoutSegmentedControl extends StatelessWidget {
                         child: Text(
                           item.label,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.white,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -199,7 +199,7 @@ class _LayoutSegmentedControl extends StatelessWidget {
                       Text(
                         item.label,
                         style: const TextStyle(
-                          color: Color(0xFF5B4636),
+                          color: AppColors.textBrown,
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
                         ),
@@ -257,7 +257,7 @@ class _SwitchRow extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
-                    color: Colors.black87,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 if (subtitle != null) ...[
@@ -267,7 +267,7 @@ class _SwitchRow extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 13,
                         height: 1.35,
-                        color: Color(0xFF757575),
+                        color: AppColors.grey600,
                       ),
                       children: [
                         TextSpan(text: '$subtitle '),
@@ -275,7 +275,7 @@ class _SwitchRow extends StatelessWidget {
                           TextSpan(
                             text: linkText,
                             style: const TextStyle(
-                              color: Color(0xFF757575),
+                              color: AppColors.grey600,
                               decoration: TextDecoration.underline,
                             ),
                             recognizer: onLinkTap == null
@@ -308,11 +308,11 @@ class _PillSwitch extends StatelessWidget {
     return Switch(
       value: value,
       onChanged: onChanged,
-      activeThumbColor: Colors.white,
+      activeThumbColor: AppColors.white,
       activeTrackColor: AppColors.primary,
-      inactiveThumbColor: Colors.white,
-      inactiveTrackColor: const Color(0xFFE0E0E0),
-      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      inactiveThumbColor: AppColors.white,
+      inactiveTrackColor: AppColors.divider,
+      trackOutlineColor: const WidgetStatePropertyAll(AppColors.transparent),
       trackOutlineWidth: const WidgetStatePropertyAll(0),
     );
   }

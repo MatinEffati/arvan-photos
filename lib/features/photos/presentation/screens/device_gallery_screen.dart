@@ -358,7 +358,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
     }
 
     return Container(
-      color: Colors.white,
+      color: AppColors.white,
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
       child: SizedBox(
         height: kToolbarHeight,
@@ -384,7 +384,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.folder_outlined, color: Color(0xFF3C4043)),
+              icon: const Icon(Icons.folder_outlined, color: AppColors.grey800),
               onPressed: () {
                 final galleryBloc = context.read<DeviceGalleryBloc>();
                 Navigator.push(
@@ -400,7 +400,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
               alignment: Alignment.center,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.add, color: Color(0xFF3C4043)),
+                  icon: const Icon(Icons.add, color: AppColors.grey800),
                   onPressed: () {},
                 ),
                 Positioned(
@@ -409,13 +409,13 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                   child: Container(
                     width: 8,
                     height: 8,
-                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    decoration: const BoxDecoration(color: AppColors.googleRed, shape: BoxShape.circle),
                   ),
                 ),
               ],
             ),
             IconButton(
-              icon: const Icon(Icons.notifications_outlined, color: Color(0xFF3C4043)),
+              icon: const Icon(Icons.notifications_outlined, color: AppColors.grey800),
               onPressed: () {},
             ),
             const Padding(
@@ -469,7 +469,7 @@ class _DeviceGalleryScreenState extends State<DeviceGalleryScreen> with WidgetsB
                           child: Text(
                             group.title,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF3C4043)),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.grey800),
                           ),
                         ),
                         if (state.selectedAssetIds.isNotEmpty)
@@ -561,7 +561,7 @@ class TopStatusBarScrim extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(height: MediaQuery.of(context).padding.top, color: Colors.white.withValues(alpha: 0.9));
+    return Container(height: MediaQuery.of(context).padding.top, color: AppColors.white.withValues(alpha: 0.9));
   }
 }
 
@@ -575,13 +575,13 @@ class FloatingDatePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppColors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF3C4043)),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.grey800),
       ),
     );
   }
@@ -599,11 +599,11 @@ class FloatingMoreButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
+          boxShadow: [BoxShadow(color: AppColors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
         ),
-        child: const Icon(Icons.more_vert, size: 20, color: Color(0xFF3C4043)),
+        child: const Icon(Icons.more_vert, size: 20, color: AppColors.grey800),
       ),
     );
   }
@@ -622,21 +622,21 @@ class SelectionCountPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF1E4),
+        color: AppColors.peachLight,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppColors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
             onTap: onClose,
-            child: const Icon(Icons.close, size: 20, color: Color(0xFF3C3229)),
+            child: const Icon(Icons.close, size: 20, color: AppColors.peachDark),
           ),
           const SizedBox(width: 10),
           Text(
             '$count',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF3C3229)),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.peachDark),
           ),
         ],
       ),
@@ -689,7 +689,7 @@ class SelectionActionSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -699,7 +699,7 @@ class SelectionActionSheet extends StatelessWidget {
           Container(
             width: 36,
             height: 4,
-            decoration: BoxDecoration(color: const Color(0xFFFFDDBE), borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(color: AppColors.peachSelected, borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -752,14 +752,14 @@ class _SelectionActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 24, color: const Color(0xFF3C3229)),
+            Icon(icon, size: 24, color: AppColors.peachDark),
             const SizedBox(height: 6),
             Text(
               label,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF3C3229)),
+              style: const TextStyle(fontSize: 12, color: AppColors.peachDark),
             ),
           ],
         ),

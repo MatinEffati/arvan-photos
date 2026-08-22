@@ -78,11 +78,11 @@ class LocalPhotoGridItem extends StatelessWidget {
                         left: 4,
                         child: Icon(
                           isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                          color: isSelected ? AppColors.primary : Colors.white,
+                          color: isSelected ? AppColors.primary : AppColors.white,
                           size: 24,
                           shadows: [
                             Shadow(
-                              color: Colors.black.withValues(alpha: 0.45),
+                              color: AppColors.black.withValues(alpha: 0.45),
                               blurRadius: 4,
                               offset: const Offset(0, 1),
                             ),

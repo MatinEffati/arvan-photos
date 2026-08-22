@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:arvan_photos/core/theme/app_colors.dart';
 
 class UploadStatusBadge extends StatelessWidget {
   const UploadStatusBadge({
@@ -24,7 +25,7 @@ class UploadStatusBadge extends StatelessWidget {
         child: isBackedUp
             ? CustomPaint(
           size: const Size(18, 18),
-          painter: CloudCheckPainter(color: Colors.white),
+          painter: CloudCheckPainter(color: AppColors.white),
         )
             : Stack(
           alignment: Alignment.center,
@@ -33,13 +34,13 @@ class UploadStatusBadge extends StatelessWidget {
               size: const Size(20, 20),
               painter: DashedArcPainter(
                 progress: progress ?? 0.0,
-                color: Colors.white,
-                unfilledColor: Colors.white.withValues(alpha: 0.6),
+                color: AppColors.white,
+                unfilledColor: AppColors.white.withValues(alpha: 0.6),
               ),
             ),
             const Icon(
               Icons.file_upload_outlined,
-              color: Colors.white,
+              color: AppColors.white,
               size: 12,
             ),
           ],

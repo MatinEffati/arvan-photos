@@ -1,3 +1,4 @@
+import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/core/theme/app_spacing.dart';
 import 'package:flutter/material.dart';
 
@@ -21,13 +22,13 @@ class EmptyStateScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.hourglass_empty, size: 64, color: Colors.grey[400]),
+              Icon(Icons.hourglass_empty, size: 64, color: AppColors.grey400),
               const SizedBox(height: AppSpacing.m),
               Text(
                 message,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.grey[600],
+                  color: AppColors.grey600,
                 ),
               ),
             ],

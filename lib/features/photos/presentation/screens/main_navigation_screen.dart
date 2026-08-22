@@ -1,5 +1,6 @@
 import 'package:arvan_photos/core/di/injection.dart';
 import 'package:arvan_photos/core/presentation/widgets/empty_state_screen.dart';
+import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/core/theme/app_spacing.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/delete/delete_bloc.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
@@ -43,9 +44,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        systemNavigationBarColor: Colors.white,
+        systemNavigationBarColor: AppColors.white,
         systemNavigationBarIconBrightness: Brightness.dark,
-        statusBarColor: Colors.transparent,
+        statusBarColor: AppColors.transparent,
         statusBarIconBrightness: Brightness.dark,
       ),
       child: MultiBlocProvider(
@@ -55,7 +56,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           BlocProvider(create: (context) => getIt<DeleteBloc>()),
         ],
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.white,
           body: Stack(
             children: [
               SafeArea(

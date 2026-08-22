@@ -1,10 +1,11 @@
+import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Cream color already established in the app's design system
 /// (see FloatingNavBar.barBgColor) — reused here so the floating date pill
 /// and the bottom nav pill feel like one consistent visual language.
-const Color kFloatingChipColor = Color(0xFFFFF1E4);
-const Color kFloatingChipTextColor = Color(0xFF3C3229);
+const Color kFloatingChipColor = AppColors.peachLight;
+const Color kFloatingChipTextColor = AppColors.peachDark;
 
 /// The rounded "Sat, Jun 27" chip that floats above the grid and reflects
 /// whichever date group is currently scrolled to the top — NOT a header
@@ -25,7 +26,7 @@ class FloatingDatePill extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: AppColors.black.withValues(alpha: 0.15),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -64,7 +65,7 @@ class FloatingMoreButton extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
+              color: AppColors.black.withValues(alpha: 0.15),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

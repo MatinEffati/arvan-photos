@@ -8,24 +8,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 
-/// Colors pulled directly from the reference screenshot (Material-You style
-/// dynamic tan/amber theme, not the standard Google blue). Kept local to this
-/// file since app_colors.dart doesn't define this specific palette.
-class _RefColors {
-  const _RefColors._();
-
-  static const titleBlack = Color(0xFF212121);
-  static const bodyGrey = Color(0xFF5F6368);
-  static const disabledGrey = Color(0xFF9AA0A6);
-  static const dividerGrey = Color(0xFFE0E0E0);
-
-  static const tooltipBrown = Color(0xFF6B5022);
-  static const alertRed = Color(0xFFC0574D);
-  static const bannerBg = Color(0xFFF4F0ED);
-  static const shieldBlue = Color(0xFF194D79);
-  static const accentBrown = Color(0xFF6B5022);
-  static const arrowChipBg = Color(0xFF3C4043);
-}
 
 class BackupSettingsScreen extends StatefulWidget {
   const BackupSettingsScreen({super.key});
@@ -50,18 +32,18 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         final isAutoBackupEnabled = state.isAutoBackupEnabled;
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.white,
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
             elevation: 0,
             scrolledUnderElevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: _RefColors.titleBlack),
+              icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
               onPressed: () => Navigator.pop(context),
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.settings_outlined, color: _RefColors.titleBlack),
+                icon: const Icon(Icons.settings_outlined, color: AppColors.textPrimary),
                 onPressed: () {},
               ),
             ],
@@ -75,7 +57,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                 const SizedBox(height: AppSpacing.m),
                 _buildAccountRow(isAutoBackupEnabled),
                 _buildQualityRow(isAutoBackupEnabled),
-                const Divider(height: 1, thickness: 1, color: _RefColors.dividerGrey),
+                const Divider(height: 1, thickness: 1, color: AppColors.divider),
                 if (!isAutoBackupEnabled && state.notBackedUpCount > 0)
                   _buildNotBackedUpSection(context, state),
                 const SizedBox(height: AppSpacing.l),
@@ -99,7 +81,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         style: const TextStyle(
           fontSize: 30,
           fontWeight: FontWeight.w400,
-          color: _RefColors.titleBlack,
+          color: AppColors.textPrimary,
           height: 1.2,
         ),
       ),
@@ -120,7 +102,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                   'Back up photos & videos on this device automatically',
                   style: TextStyle(
                     fontSize: 15,
-                    color: _RefColors.titleBlack,
+                    color: AppColors.textPrimary,
                     height: 1.35,
                   ),
                 ),
@@ -134,10 +116,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                     setState(() => _tooltipDismissed = true);
                     context.read<DeviceGalleryBloc>().add(DeviceGalleryAutoBackupToggled(value));
                   },
-                  activeThumbColor: Colors.white,
+                  activeThumbColor: AppColors.white,
                   activeTrackColor: AppColors.primary,
-                  inactiveThumbColor: _RefColors.titleBlack,
-                  inactiveTrackColor: const Color(0xFFDCDCDC),
+                  inactiveThumbColor: AppColors.textPrimary,
+                  inactiveTrackColor: AppColors.inactiveTrack,
                 ),
               ),
             ],
@@ -151,12 +133,12 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: _RefColors.tooltipBrown,
+                    color: AppColors.accentBrown,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
                     'Turn on automatic backup',
-                    style: TextStyle(color: Colors.white, fontSize: 13),
+                    style: TextStyle(color: AppColors.white, fontSize: 13),
                   ),
                 ),
               ),
@@ -174,10 +156,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         'Backup account',
         style: TextStyle(
           fontSize: 15,
-          color: isAutoBackupEnabled ? _RefColors.titleBlack : _RefColors.disabledGrey,
+          color: isAutoBackupEnabled ? AppColors.textPrimary : AppColors.grey500,
         ),
       ),
-      trailing: Icon(Icons.chevron_right, color: _RefColors.disabledGrey.withValues(alpha: 0.6)),
+      trailing: Icon(Icons.chevron_right, color: AppColors.grey500.withValues(alpha: 0.6)),
       onTap: isAutoBackupEnabled ? () {} : null,
     );
   }
@@ -189,14 +171,14 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
         'Quality',
         style: TextStyle(
           fontSize: 15,
-          color: isAutoBackupEnabled ? _RefColors.titleBlack : _RefColors.disabledGrey,
+          color: isAutoBackupEnabled ? AppColors.textPrimary : AppColors.grey500,
         ),
       ),
       trailing: Text(
         'Original',
         style: TextStyle(
           fontSize: 15,
-          color: isAutoBackupEnabled ? _RefColors.bodyGrey : _RefColors.disabledGrey,
+          color: isAutoBackupEnabled ? AppColors.grey700 : AppColors.grey500,
         ),
       ),
       onTap: isAutoBackupEnabled ? () {} : null,
@@ -217,10 +199,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                 height: 22,
                 margin: const EdgeInsets.only(top: 2),
                 decoration: const BoxDecoration(
-                  color: _RefColors.alertRed,
+                  color: AppColors.alertRed,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.priority_high, color: Colors.white, size: 16),
+                child: const Icon(Icons.priority_high, color: AppColors.white, size: 16),
               ),
               const SizedBox(width: AppSpacing.m),
               Expanded(
@@ -229,11 +211,11 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                   children: [
                     const Text(
                       'Backup is off',
-                      style: TextStyle(fontSize: 15, color: _RefColors.titleBlack),
+                      style: TextStyle(fontSize: 15, color: AppColors.textPrimary),
                     ),
                     Text(
                       '${state.notBackedUpCount} items not backed up',
-                      style: const TextStyle(fontSize: 13, color: _RefColors.bodyGrey),
+                      style: const TextStyle(fontSize: 13, color: AppColors.grey700),
                     ),
                   ],
                 ),
@@ -257,11 +239,11 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                       width: 70,
                       height: 70,
                       decoration: BoxDecoration(
-                        color: _RefColors.arrowChipBg,
+                        color: AppColors.chipBackground,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Center(
-                        child: Icon(Icons.arrow_forward, color: Colors.white, size: 22),
+                        child: Icon(Icons.arrow_forward, color: AppColors.white, size: 22),
                       ),
                     ),
                   );
@@ -301,18 +283,18 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.m),
         decoration: BoxDecoration(
-          color: _RefColors.bannerBg,
+          color: AppColors.bannerBackground,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.shield_outlined, color: _RefColors.shieldBlue, size: 22),
+            const Icon(Icons.shield_outlined, color: AppColors.shieldBlue, size: 22),
             const SizedBox(width: AppSpacing.m),
             Expanded(
               child: Text.rich(
                 TextSpan(
-                  style: const TextStyle(fontSize: 13, color: _RefColors.titleBlack, height: 1.4),
+                  style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.4),
                   children: [
                     const TextSpan(
                       text: 'The photos and videos you back up are kept safe and secure. ',
@@ -320,7 +302,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                     TextSpan(
                       text: 'Learn more',
                       style: const TextStyle(
-                        color: _RefColors.accentBrown,
+                        color: AppColors.accentBrown,
                         fontWeight: FontWeight.w600,
                       ),
                       recognizer: TapGestureRecognizer()..onTap = () {},
@@ -349,15 +331,15 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F3F4),
+                  color: AppColors.helpIconBackground,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Icon(Icons.help_outline, color: _RefColors.titleBlack, size: 20),
+                child: const Icon(Icons.help_outline, color: AppColors.textPrimary, size: 20),
               ),
               const SizedBox(width: AppSpacing.m),
               const Text(
                 "Can't find your photo or video?",
-                style: TextStyle(fontSize: 14, color: _RefColors.titleBlack),
+                style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
               ),
             ],
           ),

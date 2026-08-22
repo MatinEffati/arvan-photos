@@ -20,7 +20,7 @@ Future<bool> showTrashConfirmationDialog(BuildContext context, {required int cou
         'Remove from your Google Account, any other devices with backup turned '
         'on and places shared within Google Photos?',
         textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 14, color: Color(0xFF444444)),
+        style: TextStyle(fontSize: 14, color: AppColors.grey750),
       ),
       actionsAlignment: MainAxisAlignment.end,
       actions: [

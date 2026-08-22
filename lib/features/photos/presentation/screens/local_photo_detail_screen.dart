@@ -1,3 +1,4 @@
+import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/features/photos/presentation/bloc/device_gallery/device_gallery_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -5,14 +6,6 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
-
-/// Colors sampled from the reference screenshot.
-class _RefColors {
-  const _RefColors._();
-
-  static const titleBlack = Color(0xFF212121);
-  static const subtitleGrey = Color(0xFF5F6368);
-}
 
 const List<String> _kMonthAbbr = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -72,10 +65,10 @@ class _LocalPhotoDetailScreenState extends State<LocalPhotoDetailScreen> {
         final currentAsset = widget.assets[_currentIndex];
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.white,
           body: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            color: _chromeVisible ? Colors.white : Colors.black,
+            color: _chromeVisible ? AppColors.white : AppColors.black,
             child: Stack(
               children: [
                 Positioned.fill(
@@ -152,12 +145,12 @@ class _LocalPhotoDetailScreenState extends State<LocalPhotoDetailScreen> {
     final dt = currentAsset.createDateTime;
 
     return Container(
-      color: Colors.white,
+      color: AppColors.white,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: _RefColors.titleBlack),
+            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
           Expanded(
@@ -171,13 +164,13 @@ class _LocalPhotoDetailScreenState extends State<LocalPhotoDetailScreen> {
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w500,
-                        color: _RefColors.titleBlack,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const Icon(
                       Icons.chevron_right,
                       size: 18,
-                      color: _RefColors.titleBlack,
+                      color: AppColors.textPrimary,
                     ),
                   ],
                 ),
@@ -185,19 +178,19 @@ class _LocalPhotoDetailScreenState extends State<LocalPhotoDetailScreen> {
                   _formatTime(dt),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: _RefColors.subtitleGrey,
+                    color: AppColors.grey700,
                   ),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.star_border, color: _RefColors.titleBlack),
+            icon: const Icon(Icons.star_border, color: AppColors.textPrimary),
             onPressed: () {},
             tooltip: 'Favorite',
           ),
           IconButton(
-            icon: const Icon(Icons.more_vert, color: _RefColors.titleBlack),
+            icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
             onPressed: () {},
             tooltip: 'More',
           ),
@@ -208,7 +201,7 @@ class _LocalPhotoDetailScreenState extends State<LocalPhotoDetailScreen> {
 
   Widget _buildBottomChrome(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: AppColors.white,
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -260,11 +253,11 @@ class _ActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: _RefColors.titleBlack, size: 22),
+            Icon(icon, color: AppColors.textPrimary, size: 22),
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(fontSize: 12, color: _RefColors.titleBlack),
+              style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
             ),
           ],
         ),

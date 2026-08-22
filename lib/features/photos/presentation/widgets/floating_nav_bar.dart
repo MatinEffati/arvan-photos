@@ -1,3 +1,4 @@
+import 'package:arvan_photos/core/theme/app_colors.dart';
 import 'package:arvan_photos/core/theme/app_spacing.dart';
 import 'package:flutter/material.dart';
 
@@ -7,9 +8,9 @@ class FloatingNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onItemSelected;
 
-  static const Color barBgColor = Color(0xFFFFF1E4);
-  static const Color selectedItemColor = Color(0xFFFFDDBE);
-  static const Color onSurfaceColor = Color(0xFF202124);
+  static const Color barBgColor = AppColors.peachLight;
+  static const Color selectedItemColor = AppColors.peachSelected;
+  static const Color onSurfaceColor = AppColors.grey900;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +23,7 @@ class FloatingNavBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: barBgColor,
         borderRadius: BorderRadius.circular(32),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: AppColors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -67,7 +68,7 @@ class _NavBarItem extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(horizontal: isSelected ? 12 : 8, vertical: AppSpacing.s),
         decoration: BoxDecoration(
-          color: isSelected ? FloatingNavBar.selectedItemColor : Colors.transparent,
+          color: isSelected ? FloatingNavBar.selectedItemColor : AppColors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Row(
@@ -102,7 +103,7 @@ class FloatingSearchButton extends StatelessWidget {
           color: FloatingNavBar.barBgColor,
           shape: BoxShape.circle,
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4)),
+            BoxShadow(color: AppColors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4)),
           ],
           border: isSelected ? Border.all(color: FloatingNavBar.selectedItemColor, width: 2) : null,
         ),
